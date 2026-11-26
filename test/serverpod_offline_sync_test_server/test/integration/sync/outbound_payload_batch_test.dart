@@ -97,66 +97,70 @@ void main() {
     },
   );
 
-  group('Given pending edits and inserts across two spaces and an excluded space,', () {
-    late SyncNode author;
-    late UuidValue first;
-    late UuidValue second;
-    late Map<UuidValue, int> checkpoints;
-    late Map<(UuidValue, String, UuidValue, String), Object?> expected;
-    late Map<UuidValue, UuidValue> inserted;
+  group(
+    'Given two spaces, each with an insert and pending edits to a city and 1,001 people (the 1,000-id payload batch plus one),',
+    () {
+      late SyncNode author;
+      late UuidValue first;
+      late UuidValue second;
+      late Map<UuidValue, int> checkpoints;
+      late Map<(UuidValue, String, UuidValue, String), Object?> expected;
+      late Map<UuidValue, UuidValue> inserted;
 
-    setUpAll(() async {
-      author = await syncNode(await createAdditionalTestSession(), [Person.t, City.t]);
-      first = const Uuid().v7obj();
-      second = const Uuid().v7obj();
-      final excluded = const Uuid().v7obj();
-      checkpoints = {};
-      expected = {};
-      inserted = {};
-      for (final space in [first, second, excluded]) {
-        final city = City(id: const Uuid().v7obj(), name: 'before');
-        // One more than a 1,000-id payload batch.
-        final people = [
-          for (var index = 0; index < 1001; index++)
-            Person(id: const Uuid().v7obj(), name: 'before', surname: 'before'),
-        ];
-        await author.offlineSync.db.transactionForUser(space, (tx) async {
-          await City.db.insertRow(author.offlineSync, city, transaction: tx);
-          await Person.db.insert(author.offlineSync, people, transaction: tx);
-        });
-        final initial = await author.sync.captureChanges(
-          author.raw,
-          checkpointsBySpaceUuid: {space: 0},
-        );
-        if (space != excluded) {
+      setUpAll(() async {
+        author = await syncNode(await createAdditionalTestSession(), [
+          Person.t,
+          City.t,
+        ]);
+        first = const Uuid().v7obj();
+        second = const Uuid().v7obj();
+        checkpoints = {};
+        expected = {};
+        inserted = {};
+        for (final space in [first, second]) {
+          final city = City(id: const Uuid().v7obj(), name: 'before');
+          final people = [
+            for (var index = 0; index < 1001; index++)
+              Person(id: const Uuid().v7obj(), name: 'before', surname: 'before'),
+          ];
+          await author.offlineSync.db.transactionForUser(space, (tx) async {
+            await City.db.insertRow(author.offlineSync, city, transaction: tx);
+            await Person.db.insert(author.offlineSync, people, transaction: tx);
+          });
+          final initial = await author.sync.captureChanges(
+            author.raw,
+            checkpointsBySpaceUuid: {space: 0},
+          );
           checkpoints[space] = initial.checkpoints.single.revision;
-        }
 
-        final newPerson = Person(
-          id: const Uuid().v7obj(),
-          name: '$space/new',
-          cityId: city.id,
-        );
-        final edits = [
-          for (final (index, row) in people.indexed)
-            row.copyWith(name: '$space/edited/$index', surname: null, cityId: city.id),
-        ];
-        await author.offlineSync.db.transactionForUser(space, (tx) async {
-          await Person.db.update(
-            author.offlineSync,
-            edits,
-            columns: (t) => [t.name, t.surname, t.cityId],
-            transaction: tx,
+          final newPerson = Person(
+            id: const Uuid().v7obj(),
+            name: '$space/new',
+            cityId: city.id,
           );
-          await City.db.updateRow(
-            author.offlineSync,
-            city.copyWith(name: '$space/edited city'),
-            columns: (t) => [t.name],
-            transaction: tx,
-          );
-          await Person.db.insertRow(author.offlineSync, newPerson, transaction: tx);
-        });
-        if (space != excluded) {
+          final edits = [
+            for (final (index, row) in people.indexed)
+              row.copyWith(
+                name: '$space/edited/$index',
+                surname: null,
+                cityId: city.id,
+              ),
+          ];
+          await author.offlineSync.db.transactionForUser(space, (tx) async {
+            await Person.db.update(
+              author.offlineSync,
+              edits,
+              columns: (t) => [t.name, t.surname, t.cityId],
+              transaction: tx,
+            );
+            await City.db.updateRow(
+              author.offlineSync,
+              city.copyWith(name: '$space/edited city'),
+              columns: (t) => [t.name],
+              transaction: tx,
+            );
+            await Person.db.insertRow(author.offlineSync, newPerson, transaction: tx);
+          });
           for (final person in edits) {
             expected[(space, 'person', person.id!, 'name')] = person.name;
             expected[(space, 'person', person.id!, 'surname')] = null;
@@ -165,54 +169,58 @@ void main() {
           expected[(space, 'city', city.id!, 'name')] = '$space/edited city';
           inserted[newPerson.id!] = space;
         }
-      }
-    });
-
-    group('when both requested deltas are captured,', () {
-      late List<CrdtMergeChange> changes;
-      late int databaseCalls;
-
-      setUpAll(() async {
-        final counting = QueryCountingDatabase(author.raw.db);
-        final collector = OfflineSyncDatabaseSession(
-          counting,
-          syncTables: [Person.t, City.t],
-        );
-        await collector.db.initialize();
-        counting.queryCount = 0;
-        changes = await author.sync
-            .collectPendingChanges(
-              collector,
-              checkpointsBySpaceUuid: checkpoints,
-            )
-            .toList();
-        databaseCalls = counting.queryCount;
       });
 
-      test('then each updated field keeps its exact value, row and space.', () {
-        expect({
-          for (final change in changes.whereType<CrdtMergeUpdate>())
-            (change.uuidSpaceId, change.tableName, change.uuidRowId, change.columnName):
-                change.value,
-        }, expected);
-        expect(changes.whereType<CrdtMergeUpdate>(), hasLength(expected.length));
-      });
+      group('when both deltas are captured,', () {
+        late List<CrdtMergeChange> changes;
+        late int databaseCalls;
 
-      test('then inserts sharing the payload batches retain their full rows.', () {
-        final inserts = changes.whereType<CrdtMergeInsert>().toList();
-        expect({
-          for (final insert in inserts) insert.uuidRowId: insert.uuidSpaceId,
-        }, inserted);
-        for (final insert in inserts) {
-          final person = insert.data as Person;
-          expect(person.name, '${insert.uuidSpaceId}/new');
-          expect(person.cityId, isNotNull);
-        }
-      });
+        setUpAll(() async {
+          final counting = QueryCountingDatabase(author.raw.db);
+          final collector = OfflineSyncDatabaseSession(
+            counting,
+            syncTables: [Person.t, City.t],
+          );
+          await collector.db.initialize();
+          counting.queryCount = 0;
+          changes = await author.sync
+              .collectPendingChanges(
+                collector,
+                checkpointsBySpaceUuid: checkpoints,
+              )
+              .toList();
+          databaseCalls = counting.queryCount;
+        });
 
-      test('then payload collection does not query once per changed field.', () {
-        expect(databaseCalls, lessThan(25));
+        test('then each updated field keeps its exact value, row and space.', () {
+          expect({
+            for (final change in changes.whereType<CrdtMergeUpdate>())
+              (
+                change.uuidSpaceId,
+                change.tableName,
+                change.uuidRowId,
+                change.columnName,
+              ): change.value,
+          }, expected);
+          expect(changes.whereType<CrdtMergeUpdate>(), hasLength(expected.length));
+        });
+
+        test('then inserts sharing the payload batches retain their full rows.', () {
+          final inserts = changes.whereType<CrdtMergeInsert>().toList();
+          expect({
+            for (final insert in inserts) insert.uuidRowId: insert.uuidSpaceId,
+          }, inserted);
+          for (final insert in inserts) {
+            final person = insert.data as Person;
+            expect(person.name, '${insert.uuidSpaceId}/new');
+            expect(person.cityId, isNotNull);
+          }
+        });
+
+        test('then payload collection does not query once per changed field.', () {
+          expect(databaseCalls, lessThan(25));
+        });
       });
-    });
-  });
+    },
+  );
 }
