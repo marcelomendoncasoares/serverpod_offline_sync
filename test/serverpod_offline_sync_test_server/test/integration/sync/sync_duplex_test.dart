@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:serverpod_database/serverpod_database.dart' as database;
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
 import 'package:test/test.dart';

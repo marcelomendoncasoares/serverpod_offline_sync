@@ -413,10 +413,7 @@ void main() {
       receiving = await FramedSyncPeer.open(
         receiver,
         onDiagnostic: (event) {
-          if (event['name'] == 'merge.phase' &&
-              (event['data'] as Map?)?['phase'] == 'prepareSpaceAndClock') {
-            merges++;
-          }
+          if (event['name'] == 'merge' && event['kind'] == 'start') merges++;
         },
       );
     });

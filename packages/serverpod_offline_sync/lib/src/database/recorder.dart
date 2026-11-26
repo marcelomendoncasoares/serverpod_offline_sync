@@ -5,6 +5,7 @@ import 'package:clock/clock.dart';
 import 'package:meta/meta.dart';
 import 'package:serverpod_database/serverpod_database.dart';
 import 'package:serverpod_serialization/serverpod_serialization.dart';
+import 'package:serverpod_shared/log.dart' show LogConvenience, log;
 import 'package:uuid/uuid.dart';
 
 import '../crdt/extensions.dart';
@@ -157,9 +158,10 @@ class OfflineSyncDatabaseContext {
         }
       } on Object catch (error) {
         // Hint delivery must not change a completed transaction's outcome.
-        OfflineSyncDiagnostics.event('sync.hintVerificationFailed', {
-          'type': error.runtimeType.toString(),
-        });
+        log.warning(
+          'Offline sync could not verify committed spaces to wake their '
+          'streams: $error. Recovery polling still delivers the changes.',
+        );
         return result;
       }
     } else {
