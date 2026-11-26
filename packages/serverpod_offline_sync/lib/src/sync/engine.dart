@@ -911,6 +911,10 @@ class OfflineSyncEngine {
 
   /// Reads the rows in [ids] that [spaceId] still owns, [_payloadBatchSize] ids
   /// per query, in [transaction]'s snapshot.
+  ///
+  /// The domain table and projected columns are only known at runtime, so a
+  /// generated repository cannot express this query. One targeted SQL
+  /// projection also avoids fetching and serializing unrelated columns.
   Future<List<Map<String, dynamic>>> _selectOwnedRows(
     DatabaseSession session,
     Table table,
@@ -944,11 +948,8 @@ class OfflineSyncEngine {
   ///
   /// Takes the materialized row from the domain table, then swaps any columns
   /// with an active [CrdtDataAttemptedValue] back to the authored value before
-  /// deserializing. The domain table and projected columns are only known at
-  /// runtime, so a generated repository cannot express this query. Keeping one
-  /// targeted SQL projection also avoids fetching and serializing unrelated
-  /// columns. This is the inverse of inbound FK materialization: the wire payload
-  /// carries attempted facts, not locally projected visible values.
+  /// deserializing. This is the inverse of inbound FK materialization: the wire
+  /// payload carries attempted facts, not locally projected visible values.
   Object _decodeOutboundRow(
     DatabaseSession session,
     Table table,
