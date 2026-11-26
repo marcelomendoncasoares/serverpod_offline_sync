@@ -904,6 +904,7 @@ void main() {
                 )
                 .catchError((Object error) {
                   mergeError = error;
+                  return <String>{};
                 });
 
             try {

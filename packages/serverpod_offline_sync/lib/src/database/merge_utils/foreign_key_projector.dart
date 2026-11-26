@@ -1960,6 +1960,7 @@ class CrdtForeignKeyProjector {
 
     if (toUpdate.isEmpty) return;
 
+    _context.databaseContext.recordVisibleRows(toUpdate, transaction);
     await CrdtDataRow.db.update(
       _context.databaseSession,
       toUpdate,

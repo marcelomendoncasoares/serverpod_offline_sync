@@ -1,3 +1,11 @@
+## Unreleased
+
+- fix: Filter unrelated SQLite metadata notifications using in-memory transaction
+  effects while retaining native notifications for domain writes, visibility
+  projections, and membership changes. No triggers or notification tables are used.
+- feat: BREAKING. `onMergeSuccess` receives affected domain table names as its third
+  argument. `mergeChanges` returns the same conservative set after commit.
+
 ## 0.0.12
 
 - fix: BREAKING. Each user has their own clock per database, so users writing

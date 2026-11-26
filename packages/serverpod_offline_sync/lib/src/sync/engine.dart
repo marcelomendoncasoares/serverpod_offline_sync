@@ -23,9 +23,17 @@ import 'space_state.dart';
 
 export 'space_state.dart' show OfflineSyncPeerMode;
 
-/// Callback function for when a merge is successful.
+/// Called after a successful per-space merge/checkpoint exchange.
+///
+/// [affectedTables] contains domain tables whose stored rows or visibility may
+/// have changed during this local merge. It is empty for metadata-only merges
+/// and outbound acknowledgements. Membership adoption is a separate operation.
 typedef OfflineSyncOnMergeSuccess =
-    FutureOr<void> Function(UuidValue spaceUuid, Hlc syncedHlc);
+    FutureOr<void> Function(
+      UuidValue spaceUuid,
+      Hlc syncedHlc,
+      Set<String> affectedTables,
+    );
 
 /// A tuple representing the ownership of a domain row.
 typedef DomainRowOwner = ({bool exists, int? spaceId});
@@ -251,12 +259,27 @@ class OfflineSyncEngine {
     required UuidValue userId,
     required UuidValue spaceId,
     required CrdtMergeSet mergeSet,
+  }) async => (await _mergeInboundBatch(
+    session,
+    userId: userId,
+    spaceId: spaceId,
+    mergeSet: mergeSet,
+  )).syncedHlc;
+
+  Future<({Hlc? syncedHlc, Set<String> affectedTables})> _mergeInboundBatch(
+    DatabaseSession session, {
+    required UuidValue userId,
+    required UuidValue spaceId,
+    required CrdtMergeSet mergeSet,
   }) async {
-    if (mergeSet.isEmpty) return null;
-    final maxSyncedHlc = mergeSet.maxHlc;
+    if (mergeSet.isEmpty) return (syncedHlc: null, affectedTables: const <String>{});
     final offlineSyncDb = _openOfflineSyncDatabase(session);
-    await offlineSyncDb.mergeChanges(mergeSet, userId: userId, spaceId: spaceId);
-    return maxSyncedHlc;
+    final affectedTables = await offlineSyncDb.mergeChanges(
+      mergeSet,
+      userId: userId,
+      spaceId: spaceId,
+    );
+    return (syncedHlc: mergeSet.maxHlc, affectedTables: affectedTables);
   }
 
   /// Runs a symmetric CRDT sync session over a bidirectional event stream.
@@ -462,16 +485,22 @@ class OfflineSyncEngine {
           changes: entry.value,
         );
       }
-      final receivedHlc = await mergeInboundBatch(
+      final outcome = await _mergeInboundBatch(
         session,
         userId: spaces.userId,
         spaceId: spaceId,
         mergeSet: entry.value,
       );
-      await _reportMerge(onMergeSuccess, spaces, spaceId, receivedHlc);
+      await _reportMerge(
+        onMergeSuccess,
+        spaces,
+        spaceId,
+        outcome.syncedHlc,
+        outcome.affectedTables,
+      );
     }
     for (final spaceId in outboundSpaces.difference(mergedSpaces)) {
-      await _reportMerge(onMergeSuccess, spaces, spaceId, null);
+      await _reportMerge(onMergeSuccess, spaces, spaceId, null, const {});
     }
   }
 
@@ -529,10 +558,15 @@ class OfflineSyncEngine {
     OfflineSyncSpaceState spaces,
     UuidValue spaceId,
     Hlc? receivedHlc,
+    Set<String> affectedTables,
   ) async {
     final checkpointMax = spaces.checkpointMaxOf(spaceId);
     if (checkpointMax == null) return;
-    await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    await onMergeSuccess?.call(
+      spaceId,
+      checkpointMax.maxBetween(receivedHlc),
+      affectedTables,
+    );
   }
 
   /// Drains [iterator] until the peer closes the stream.
