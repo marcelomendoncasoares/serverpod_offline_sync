@@ -1,0 +1,99 @@
+import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
+import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
+import 'package:test/test.dart';
+
+import '../../../../../benchmark/utils/query_counter.dart';
+import '../test_tools/client_session.dart';
+import '../test_tools/sync_topology.dart';
+
+void main() {
+  initTestClientSession(createSessionPerTest: false);
+
+  group(
+    'Given two spaces, each with a city and 1,001 people (the 1,000-id payload batch plus one),',
+    () {
+      late SyncNode author;
+      late UuidValue first;
+      late UuidValue second;
+      late Map<UuidValue, (UuidValue, String)> expected;
+
+      setUpAll(() async {
+        author = await syncNode(await createAdditionalTestSession(), [
+          Person.t,
+          City.t,
+        ]);
+        first = const Uuid().v7obj();
+        second = const Uuid().v7obj();
+        expected = {};
+        for (final space in [first, second]) {
+          final people = [
+            for (var index = 0; index < 1001; index++)
+              Person(id: const Uuid().v7obj(), name: '$space/$index'),
+          ];
+          expected.addEntries([
+            for (final row in people) MapEntry(row.id!, (space, row.name)),
+          ]);
+          await author.offlineSync.db.transactionForUser(space, (tx) async {
+            await Person.db.insert(author.offlineSync, people, transaction: tx);
+            await City.db.insertRow(
+              author.offlineSync,
+              City(id: const Uuid().v7obj(), name: '$space/city'),
+              transaction: tx,
+            );
+          });
+        }
+      });
+
+      group('when both spaces are collected in one snapshot,', () {
+        late List<CrdtMergeInsert> inserts;
+        late int databaseCalls;
+
+        setUpAll(() async {
+          final counting = QueryCountingDatabase(author.raw.db);
+          final collector = OfflineSyncDatabaseSession(
+            counting,
+            syncTables: [Person.t, City.t],
+          );
+          await collector.db.initialize();
+          counting.queryCount = 0;
+
+          final changes = await author.sync
+              .collectPendingChanges(
+                collector,
+                checkpointsBySpaceUuid: {first: const [], second: const []},
+              )
+              .toList();
+          inserts = changes.cast<CrdtMergeInsert>();
+          databaseCalls = counting.queryCount;
+        });
+
+        test('then every person keeps its payload and owning space.', () {
+          final actual = {
+            for (final insert in inserts)
+              if (insert.data case final Person person)
+                person.id!: (insert.uuidSpaceId, person.name),
+          };
+          expect(actual, expected);
+          expect(inserts, hasLength(2004));
+        });
+
+        test('then rows from other tables retain their own payloads.', () {
+          expect(
+            {
+              for (final insert in inserts)
+                if (insert.data case final City city) insert.uuidSpaceId: city.name,
+            },
+            {first: '$first/city', second: '$second/city'},
+          );
+        });
+
+        test(
+          'then collection uses fewer database calls than individual row reads.',
+          () {
+            expect(databaseCalls, lessThan(20));
+          },
+        );
+      });
+    },
+  );
+}
