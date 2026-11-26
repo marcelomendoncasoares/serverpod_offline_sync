@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_offline_sync_benchmark/scale/commit_hints.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/common.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server.dart';
 import 'package:serverpod_offline_sync_benchmark/scale/server_diagnostics.dart';
@@ -18,7 +19,11 @@ Future<void> main(List<String> args) async {
     configOverride: benchmarkServerConfig,
     authenticationHandler: (session, token) => authenticate(session, token),
     databaseInterceptor: benchmarkDatabaseInterceptor,
-  )..initializeOfflineSync(syncTables: syncTables);
+  );
+  pod.initializeOfflineSync(
+    syncTables: syncTables,
+    commitHints: createBenchmarkCommitHints(pod),
+  );
   final passwordName = benchmarkPasswordName();
   final password = pod.getPassword(passwordName);
   if (password != null && Platform.environment.containsKey('BENCHMARK_SECRET')) {

@@ -196,7 +196,8 @@ earlier retained runs; compare boundaries rather than absolute values.
   overlapping runs would make global stream/transaction cleanup ambiguous.
 - Process and stream metrics describe only the responding instance. A target
   that distributes requests across replicas is outside this runner's cleanup
-  acceptance boundary.
+  acceptance boundary; use separate controlled cross-process probes to measure
+  the hint mechanism.
 
 ## Sizing the load generator
 
@@ -514,5 +515,5 @@ server metrics and worker CPU/lag; `summary.json` contains exact nearest-rank
 quantiles (unlike the churn benchmark's histogram upper bounds). Warmup rounds
 have negative round numbers and are never included in these distributions.
 
-Standalone transport, heap and round-correlation tools are documented in
-[PROBES.md](PROBES.md).
+Standalone transport, heap, round-correlation and cross-process mechanism tools
+are documented in [PROBES.md](PROBES.md).
