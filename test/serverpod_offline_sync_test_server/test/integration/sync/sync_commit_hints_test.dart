@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
+import 'package:serverpod_shared/log.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
@@ -316,6 +317,43 @@ void main() {
 
       expect(attempts, 1);
       expect(persisted?.name, row.name);
+    },
+  );
+
+  test(
+    'Given an unavailable hint publisher, '
+    'when a synchronized transaction commits, '
+    'then the publication failure is logged as a warning.',
+    () async {
+      final session = await writer((_) => throw StateError('unavailable transport'));
+      final logs = TestLogWriter();
+      logWriter.add(logs);
+      addTearDown(() => logWriter.remove(logs));
+
+      await session.db.transactionForUser(
+        testCrdtUserId,
+        (tx) => Person.db.insertRow(
+          session,
+          Person(id: const Uuid().v7obj(), name: 'still durable'),
+          transaction: tx,
+        ),
+      );
+      await log.flush();
+
+      expect(
+        [
+          for (final entry in logs.entries)
+            if (entry.message.startsWith('Offline sync')) (entry.level, entry.message),
+        ],
+        [
+          (
+            LogLevel.warning,
+            'Offline sync could not publish commit hints: '
+                'Bad state: unavailable transport. Other processes still see the '
+                'changes at their next recovery scan.',
+          ),
+        ],
+      );
     },
   );
 }

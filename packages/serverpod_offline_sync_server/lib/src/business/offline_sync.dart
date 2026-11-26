@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' show max;
 
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_offline_sync/serverpod_offline_sync.dart';
+import 'package:serverpod_shared/log.dart' show LogConvenience, log;
 
 import 'commit_hints.dart';
 import 'offline_sync_spaces.dart';
@@ -21,9 +22,10 @@ class _CommitHintBinding {
     : subscription = transport.changes.listen(
         context.receiveCommittedSpaces,
         onError: (Object error, StackTrace stack) {
-          OfflineSyncDiagnostics.event('sync.hintReceptionFailed', {
-            'type': error.runtimeType.toString(),
-          });
+          log.warning(
+            'Offline sync could not receive commit hints: $error. Recovery '
+            'polling still delivers the changes.',
+          );
         },
       );
 
@@ -95,9 +97,10 @@ extension OfflineSyncInitialize on Serverpod {
         previous
             .close(closeTransport: !identical(previous.transport, commitHints))
             .catchError((Object error) {
-              OfflineSyncDiagnostics.event('sync.hintCloseFailed', {
-                'type': error.runtimeType.toString(),
-              });
+              log.warning(
+                'Offline sync could not close the replaced commit hint '
+                'transport: $error.',
+              );
             }),
       );
     }

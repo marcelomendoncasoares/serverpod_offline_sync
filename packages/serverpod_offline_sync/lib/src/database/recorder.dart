@@ -195,9 +195,10 @@ class OfflineSyncDatabaseContext {
       try {
         onCommittedSpaces?.call(Map.unmodifiable(changed));
       } on Object catch (error) {
-        OfflineSyncDiagnostics.event('sync.hintPublicationFailed', {
-          'type': error.runtimeType.toString(),
-        });
+        log.warning(
+          'Offline sync could not publish commit hints: $error. Other '
+          'processes still see the changes at their next recovery scan.',
+        );
       }
     }
 
