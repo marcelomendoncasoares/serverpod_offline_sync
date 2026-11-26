@@ -8,10 +8,16 @@ import 'package:serverpod_database/serverpod_database.dart';
 /// from a consumer are ignored so diagnostics cannot change sync semantics.
 typedef OfflineSyncDiagnosticSink = void Function(Map<String, Object?> event);
 
-/// Opt-in measurements scoped to one asynchronous operation, including streams
-/// subscribed inside [run]. Events omit domain payloads and SQL, but may include
-/// user, space and node identifiers supplied by instrumented operations.
-/// Durations use a monotonic clock local to the operation, not wall-clock time.
+/// Opt-in performance measurements scoped to one asynchronous operation,
+/// including streams subscribed inside [run]. Events omit domain payloads and
+/// SQL, but may include user, space and node identifiers supplied by
+/// instrumented operations. Durations use a monotonic clock local to the
+/// operation, not wall-clock time.
+///
+/// For benchmarks and performance investigations only, imported from
+/// `package:serverpod_offline_sync/diagnostics.dart`. This is not an analytics,
+/// audit or telemetry hook: events follow the sync internals and change without
+/// notice.
 class OfflineSyncDiagnostics {
   OfflineSyncDiagnostics._(this._sink);
 

@@ -1168,7 +1168,6 @@ class OfflineSyncDatabase implements Database {
     TransactionSettings? settings,
     OfflineSyncCancellation? cancellation,
   }) async {
-    OfflineSyncDiagnostics.event('merge.phase', {'phase': 'prepareSpaceAndClock'});
     final space = await _recorder.getOrCreateSpace(spaceId);
     final clockNode = await _recorder.getOrCreateUserNode(userId);
     if (authoring) await _recorder.ensureParticipation(space, clockNode);
@@ -1182,17 +1181,8 @@ class OfflineSyncDatabase implements Database {
             userForTransaction[tx] = userId;
             clockNodeForTransaction[tx] = clockNode;
             return await _recorder.withUserClock(tx, (tx) async {
-              OfflineSyncDiagnostics.event('merge.phase', {
-                'phase': 'lockClockAndSpace',
-              });
               await _recorder.lockUserClock(tx);
-              try {
-                return await action(tx);
-              } finally {
-                OfflineSyncDiagnostics.event('merge.phase', {
-                  'phase': 'persistClockAndCleanup',
-                });
-              }
+              return action(tx);
             });
           } finally {
             spaceForTransaction.remove(tx);
