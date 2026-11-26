@@ -18,6 +18,7 @@ import '../managers/space.dart';
 import '../spaces/membership.dart';
 import '../utils/case_when.dart' show Case;
 import 'cancellation.dart';
+import 'diagnostics.dart';
 import 'exceptions.dart';
 import 'integrity_violation.dart';
 import 'space_state.dart';
@@ -355,7 +356,17 @@ class OfflineSyncEngine {
     OfflineSyncOnMergeSuccess? onMergeSuccess,
   }) async* {
     var sessionCompleted = false;
+    var cycle = 0;
+    void stage(String phase, [Map<String, Object?> data = const {}]) {
+      OfflineSyncDiagnostics.event('sync.stage', {
+        'phase': phase,
+        'cycle': cycle,
+        ...data,
+      });
+    }
+
     try {
+      stage('handshake.localNode');
       // Informational: the per-space checkpoints carry every node's progress.
       final localNode = await OfflineSyncSpaceManager(
         session,
@@ -365,7 +376,11 @@ class OfflineSyncEngine {
         syncTablesHash: currentSyncTablesHash,
       );
 
+      stage('handshake.waitForPeerConnect');
       final peerConnect = await inboundIterator.moveAndThrowIfNot<OfflineSyncConnect>();
+      OfflineSyncDiagnostics.event('sync.peer', {
+        'peerNodeId': peerConnect.localNodeId.toString(),
+      });
       _validateSyncTablesHash(peerConnect.syncTablesHash);
 
       final spaces = OfflineSyncSpaceState(
@@ -375,15 +390,20 @@ class OfflineSyncEngine {
         peerNodeId: peerConnect.localNodeId,
       );
 
+      stage('handshake.reconcileSpaces');
       await spaces.reconcile();
       yield OfflineSyncSpaceSet(spaces: spaces.localGrants);
       spaces.markAnnounced();
+      stage('handshake.waitForPeerSpaces');
       final peerSpaceSet = await inboundIterator
           .moveAndThrowIfNot<OfflineSyncSpaceSet>();
+      stage('handshake.adoptSpaces');
       await spaces.adoptPeerGrants(peerSpaceSet.spaces);
 
       while (true) {
         if (cancellation.isCancelled) return;
+        cycle++;
+        stage('cycle.reconcileSpaces');
         await spaces.reconcile();
 
         final hadSendableCheckpoints = spaces.sendableCheckpoints.isNotEmpty;
@@ -396,12 +416,14 @@ class OfflineSyncEngine {
           hasChanges = true;
         }
 
+        stage('cycle.readCursors');
         for (final spaceId in spaces.activeSpaceIds) {
           if (!spaces.markHandshakeSent(spaceId)) continue;
           yield await createSyncSinceHlc(session, spaceId: spaceId);
           hasChanges = true;
         }
 
+        stage('cycle.collectAndYieldOutbound');
         final pendingLocalChanges = collectPendingChanges(
           session,
           checkpointsBySpaceUuid: spaces.sendableCheckpoints,
@@ -419,6 +441,7 @@ class OfflineSyncEngine {
           yield OfflineSyncEndOfBatch();
         }
 
+        stage('cycle.waitForInbound');
         final batch = await inboundIterator.collectNextBatch(
           allowCloseBeforeBatch: !once,
         );
@@ -430,6 +453,7 @@ class OfflineSyncEngine {
           return;
         }
 
+        stage('cycle.applyInbound', {'changes': batch.changes.length});
         await _applyCycleBatch(
           session,
           spaces,
@@ -438,14 +462,18 @@ class OfflineSyncEngine {
           onMergeSuccess,
           cancellation,
         );
+        stage('cycle.applied', {'changes': batch.changes.length});
 
         if (once) {
           if (spaces.hasIncompleteActiveHandshake) {
+            stage('cycle.repeat', {'reason': 'incompleteSpaceHandshake'});
             continue;
           }
           if (!hadSendableCheckpoints && spaces.sendableCheckpoints.isNotEmpty) {
+            stage('cycle.repeat', {'reason': 'newPeerCursorsNeedOutboundPass'});
             continue;
           }
+          stage('close.yieldAndWaitForPeer');
           yield OfflineSyncClose();
           await inboundIterator.moveAndThrowIfNot<OfflineSyncClose>();
           sessionCompleted = true;
@@ -464,6 +492,9 @@ class OfflineSyncEngine {
         }
 
         // Wait for the configured interval before checking for local changes again.
+        stage('cycle.pollDelay', {
+          'configuredMicros': _continuousSyncInterval.inMicroseconds,
+        });
         await Future<void>.delayed(_continuousSyncInterval);
       }
     } on OfflineSyncCancelledException {
@@ -482,6 +513,7 @@ class OfflineSyncEngine {
       sessionCompleted = true;
       return;
     } finally {
+      stage('cleanup', {'sessionCompleted': sessionCompleted});
       // Cancelling inbound on normal completion races with WebSocket stream
       // teardown and produces "connection closed" errors on the peer. On normal
       // completion the inbound is instead drained to "done" (see above). Keep
@@ -492,6 +524,7 @@ class OfflineSyncEngine {
         const waitTimeout = Duration(milliseconds: 200);
         await inboundIterator.cancel().timeout(waitTimeout, onTimeout: () {});
       }
+      stage('finished');
     }
   }
 
@@ -599,8 +632,16 @@ class OfflineSyncEngine {
     Hlc? receivedHlc,
   ) async {
     final checkpointMax = spaces.checkpointMaxOf(spaceId);
-    if (checkpointMax == null) return;
+    if (checkpointMax == null) {
+      OfflineSyncDiagnostics.event('sync.mergeReportSkipped', {
+        'reason': 'noCheckpoint',
+        'spaceId': spaceId.toString(),
+      });
+      return;
+    }
+    OfflineSyncDiagnostics.event('sync.mergeReportStart');
     await onMergeSuccess?.call(spaceId, checkpointMax.maxBetween(receivedHlc));
+    OfflineSyncDiagnostics.event('sync.mergeReportEnd');
   }
 
   /// Drains [iterator] until the peer closes the stream.

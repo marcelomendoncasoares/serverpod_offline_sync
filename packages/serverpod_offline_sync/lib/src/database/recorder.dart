@@ -13,6 +13,7 @@ import '../generated/protocol.dart';
 import '../hlc/hlc.dart';
 import '../managers/hlc.dart';
 import '../sync/cancellation.dart';
+import '../sync/diagnostics.dart';
 import '../sync/engine.dart';
 import '../sync/exceptions.dart';
 import 'database.dart';
