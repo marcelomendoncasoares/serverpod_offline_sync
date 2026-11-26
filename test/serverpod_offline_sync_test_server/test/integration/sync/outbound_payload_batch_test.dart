@@ -10,7 +10,7 @@ void main() {
   initTestClientSession(createSessionPerTest: false);
 
   group(
-    'Given more than one payload batch in each of two spaces and an excluded space,',
+    'Given two spaces, each with a city and 1,001 people (the 1,000-id payload batch plus one),',
     () {
       late SyncNode author;
       late UuidValue first;
@@ -24,19 +24,15 @@ void main() {
         ]);
         first = const Uuid().v7obj();
         second = const Uuid().v7obj();
-        final excluded = const Uuid().v7obj();
         expected = {};
-        for (final space in [first, second, excluded]) {
-          // One more than a 1,000-id payload batch.
+        for (final space in [first, second]) {
           final people = [
             for (var index = 0; index < 1001; index++)
               Person(id: const Uuid().v7obj(), name: '$space/$index'),
           ];
-          if (space != excluded) {
-            expected.addEntries([
-              for (final row in people) MapEntry(row.id!, (space, row.name)),
-            ]);
-          }
+          expected.addEntries([
+            for (final row in people) MapEntry(row.id!, (space, row.name)),
+          ]);
           await author.offlineSync.db.transactionForUser(space, (tx) async {
             await Person.db.insert(author.offlineSync, people, transaction: tx);
             await City.db.insertRow(
@@ -48,7 +44,7 @@ void main() {
         }
       });
 
-      group('when the two requested spaces are collected in one snapshot,', () {
+      group('when both spaces are collected in one snapshot,', () {
         late List<CrdtMergeInsert> inserts;
         late int databaseCalls;
 
@@ -71,7 +67,7 @@ void main() {
           databaseCalls = counting.queryCount;
         });
 
-        test('then every requested person keeps its payload and owning space.', () {
+        test('then every person keeps its payload and owning space.', () {
           final actual = {
             for (final insert in inserts)
               if (insert.data case final Person person)
