@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:serverpod_database/serverpod_database.dart' as database;
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_client/serverpod_offline_sync_test_client.dart';
+import 'package:serverpod_shared/log.dart';
 import 'package:test/test.dart';
 
 import '../test_tools/client_session.dart';
@@ -63,6 +64,58 @@ void main() {
         expect(frames, 0);
         expect(captures, 0);
       });
+    });
+  });
+
+  group('Given a caught-up stream whose next two recovery version reads fail,', () {
+    late _Fixture fixture;
+    late _RecoveryObservations observations;
+    late FramedSyncPeer peer;
+    late TestLogWriter logs;
+
+    setUpAll(() async {
+      fixture = await _fixture();
+      observations = _RecoveryObservations();
+      peer = await FramedSyncPeer.open(fixture.node, onDiagnostic: observations.record);
+      await observations.waitForScans(1);
+      await peer.waitForPass(2);
+      logs = TestLogWriter();
+      logWriter.add(logs);
+      fixture.db.failNextVersionReads = 2;
+    });
+
+    tearDownAll(() {
+      logWriter.remove(logs);
+    });
+
+    group('when two scans fail and the next scan succeeds,', () {
+      late List<(LogLevel, String)> recoveryLogs;
+
+      setUpAll(() async {
+        await observations.waitForScans(4);
+        await peer.close();
+        await log.flush();
+        recoveryLogs = [
+          for (final entry in logs.entries)
+            if (entry.message.startsWith('Offline sync recovery'))
+              (entry.level, entry.message),
+        ];
+      });
+
+      test(
+        'then the log reports the failure once and the recovery once.',
+        () {
+          expect(recoveryLogs, [
+            (
+              LogLevel.warning,
+              'Offline sync recovery scans are failing: Bad state: injected read failure. '
+                  'Streams still wake for commits in this process; commits from other '
+                  'processes wait until a scan succeeds.',
+            ),
+            (LogLevel.info, 'Offline sync recovery scans resumed.'),
+          ]);
+        },
+      );
     });
   });
 
@@ -480,10 +533,10 @@ class _RecoveryObservations {
       if (event['kind'] == 'start') {
         starts.add(event['data']! as Map<String, Object?>);
       } else if (event['kind'] == 'end') {
+        if ((event['data']! as Map)['ok'] != true) failures.add(event);
         _waiting.remove(++completed)?.complete();
       }
     }
-    if (event['name'] == 'sync.recoveryFailed') failures.add(event);
   }
 
   Future<void> waitForScans(int count) async {
@@ -502,6 +555,7 @@ class _CountingDatabase extends OfflineSyncDatabase {
   });
 
   int reads = 0;
+  int failNextVersionReads = 0;
   bool holdNextVersionRead = false;
   final entered = Completer<void>();
   final release = Completer<void>();
@@ -520,6 +574,11 @@ class _CountingDatabase extends OfflineSyncDatabase {
     database.LockBehavior? lockBehavior,
   }) async {
     if (T == OfflineSyncSpace || T == OfflineSyncSpaceMember) reads++;
+    // Recovery scans read outside any transaction; captures read inside one.
+    if (T == OfflineSyncSpace && transaction == null && failNextVersionReads > 0) {
+      failNextVersionReads--;
+      throw StateError('injected read failure');
+    }
     final rows = await super.find<T>(
       where: where,
       limit: limit,

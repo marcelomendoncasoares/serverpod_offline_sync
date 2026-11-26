@@ -40,6 +40,7 @@ class _SyncRecovery {
   Timer? _timer;
   Future<void>? _pending;
   OfflineSyncRecoverySubscription? _owner;
+  bool _failing = false;
 
   /// These revisions have already woken local listeners after commitment.
   /// Recovery still compares durable revisions, so a later external commit
@@ -181,9 +182,17 @@ class _SyncRecovery {
     } on Object catch (error) {
       // Retry durable inspection on the next scan. A failed recovery read must
       // not terminate otherwise healthy streams or publish guessed versions.
-      OfflineSyncDiagnostics.event('sync.recoveryFailed', {
-        'type': error.runtimeType.toString(),
-      });
+      if (!_failing) {
+        log.warning(
+          'Offline sync recovery scans are failing: $error. Streams still wake '
+          'for commits in this process; commits from other processes wait '
+          'until a scan succeeds.',
+        );
+      }
+      _failing = true;
+      return;
     }
+    if (_failing) log.info('Offline sync recovery scans resumed.');
+    _failing = false;
   }
 }
