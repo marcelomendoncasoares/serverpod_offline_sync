@@ -225,6 +225,60 @@ void main() {
         });
       });
 
+      group(
+        'Given a same-space domain row without CRDT metadata, '
+        'referencing a deleted city,',
+        () {
+          late UuidValue user;
+          late server.Person existing;
+          late Hlc clock;
+
+          setUpAll(() async {
+            user = const Uuid().v7obj();
+            final city = await merging.db.transactionForUser(
+              user,
+              (tx) => server.City.db.insertRow(
+                merging,
+                server.City(name: 'deleted city'),
+                transaction: tx,
+              ),
+            );
+            await merging.db.transactionForUser(
+              user,
+              (tx) => server.City.db.deleteRow(merging, city, transaction: tx),
+            );
+            final space = await OfflineSyncSpace.db.findFirstRow(
+              raw,
+              where: (t) => t.uuidSpaceId.equals(user),
+            );
+            existing = await server.Person.db.insertRow(
+              raw,
+              server.Person(
+                id: const Uuid().v7obj(),
+                spaceId: space!.id,
+                name: 'before recovery',
+                cityId: city.id,
+              ),
+            );
+            clock = Hlc.now(const Uuid().v7obj());
+          });
+
+          test(
+            'when a merge recovers the row without a city, '
+            'then projection clears the city reference kept from the stored row.',
+            () async {
+              await merging.db.mergeChanges([
+                _insert(user, server.Person(id: existing.id, name: 'recovered'), clock),
+              ], userId: user);
+              final recovered = await server.Person.db.findById(raw, existing.id!);
+
+              expect(recovered?.name, 'recovered');
+              expect(recovered?.cityId, isNull);
+            },
+          );
+        },
+      );
+
       group("Given a nullable-only table containing another space's row,", () {
         late OfflineSyncDatabaseSession nullableSession;
         late server.UniqueNullable incoming;
