@@ -217,9 +217,11 @@ extension on CrdtMutationRecorder {
     );
   }
 
-  /// Parents must be persisted before their children. Within each table the
-  /// causal order and explicit-null/default shape boundaries stay unchanged.
-  /// Only primary-key references can use the causal presence snapshot above.
+  /// Orders tables so parents are written before their children. Nullable
+  /// foreign keys may be immediate, so a child written first would fail its
+  /// constraint. Within each table the causal order and explicit-null/default
+  /// shape boundaries stay unchanged. Only primary-key references can use the
+  /// causal presence snapshot above.
   List<String>? _mergeInsertTableOrder(List<CrdtMergeInsert> inserts) {
     final remaining = {for (final insert in inserts) insert.tableName};
     if (remaining.length == 1) return remaining.toList();

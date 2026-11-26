@@ -237,6 +237,60 @@ void main() {
         });
       });
 
+      group(
+        'Given a new company that a new employee references '
+        'through an immediate foreign key,',
+        () {
+          late UuidValue user;
+          late server.Company company;
+          late server.Person employee;
+          late server.Person unrelated;
+          late Hlc clock;
+
+          setUpAll(() async {
+            user = const Uuid().v7obj();
+            final town = await merging.db.transactionForUser(
+              user,
+              (tx) => server.Town.db.insertRow(
+                merging,
+                server.Town(name: 'stored town'),
+                transaction: tx,
+              ),
+            );
+            company = server.Company(
+              id: const Uuid().v7obj(),
+              name: 'new company',
+              townId: town.id,
+            );
+            // person.oldCompany is not deferred, so PostgreSQL checks it on
+            // each statement instead of at commit.
+            employee = server.Person(
+              id: const Uuid().v7obj(),
+              name: 'employee',
+              oldCompanyId: company.id,
+            );
+            unrelated = server.Person(id: const Uuid().v7obj(), name: 'unrelated');
+            clock = Hlc.now(const Uuid().v7obj());
+          });
+
+          test(
+            'when one merge inserts another person before the company '
+            'and the employee after it, '
+            'then the employee keeps its company reference.',
+            () async {
+              await merging.db.mergeChanges([
+                _insert(user, unrelated, clock),
+                _insert(user, company, Hlc(clock.datetime, 1, clock.nodeId)),
+                _insert(user, employee, Hlc(clock.datetime, 2, clock.nodeId)),
+              ], userId: user);
+              final merged = await server.Person.db.findById(merging, employee.id!);
+
+              expect(merged?.oldCompanyId, company.id);
+            },
+          );
+        },
+      );
+
       group('Given fresh inserts interleaved with edits to a stored parent,', () {
         late UuidValue user;
         late server.City city;
