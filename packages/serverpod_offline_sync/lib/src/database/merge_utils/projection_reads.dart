@@ -65,27 +65,7 @@ class _ProjectionReader {
           continue;
         }
 
-        rows[key] = (
-          key: key,
-          crdtRow: snapshot.row.crdtRow.copyWith(),
-          values: {
-            for (final column in columns)
-              if (snapshot.row.values.containsKey(column))
-                column: snapshot.row.values[column],
-          },
-        );
-        fieldIds.addAll({
-          for (final entry in snapshot.fieldIds.entries)
-            if (columns.contains(entry.key.$3)) entry.key: entry.value,
-        });
-        fieldHlcs.addAll({
-          for (final entry in snapshot.fieldHlcs.entries)
-            if (columns.contains(entry.key.$3)) entry.key: entry.value,
-        });
-        attemptedValues.addAll({
-          for (final entry in snapshot.attemptedValues.entries)
-            if (columns.contains(entry.key.$3)) entry.key: entry.value.copyWith(),
-        });
+        _restoreSnapshot(key, snapshot, columns);
         (loaded[table] ??= {}).add(id);
       }
     }
@@ -100,33 +80,66 @@ class _ProjectionReader {
     for (final MapEntry(key: table, value: ids) in missing.entries) {
       final columns = columnsByTable[table] ?? const <String>{};
       for (final id in ids) {
-        final key = (table, id);
-        final row = rows[key];
-        if (row == null) {
-          cache._rows[key] = null;
-          continue;
-        }
-        final keys = {for (final column in columns) (table, id, column)};
-        cache._rows[key] = (
-          row: _copyProjectionRow(row),
-          columns: Set<String>.of(columns),
-          fieldIds: {
-            for (final key in keys)
-              if (fieldIds.containsKey(key)) key: fieldIds[key]!,
-          },
-          fieldHlcs: {
-            for (final key in keys)
-              if (fieldHlcs.containsKey(key)) key: fieldHlcs[key]!,
-          },
-          attemptedValues: {
-            for (final key in keys)
-              if (attemptedValues.containsKey(key))
-                key: attemptedValues[key]!.copyWith(),
-          },
-        );
+        cache._rows[(table, id)] = _snapshotRow((table, id), columns);
       }
     }
     return loaded;
+  }
+
+  /// Copies the [columns] of a cached [snapshot] into this reader's maps, so
+  /// projection can mutate them without changing the cache.
+  void _restoreSnapshot(
+    MergeRowKey key,
+    _ProjectionReadSnapshot snapshot,
+    Set<String> columns,
+  ) {
+    rows[key] = (
+      key: key,
+      crdtRow: snapshot.row.crdtRow.copyWith(),
+      values: {
+        for (final column in columns)
+          if (snapshot.row.values.containsKey(column))
+            column: snapshot.row.values[column],
+      },
+    );
+    fieldIds.addAll({
+      for (final entry in snapshot.fieldIds.entries)
+        if (columns.contains(entry.key.$3)) entry.key: entry.value,
+    });
+    fieldHlcs.addAll({
+      for (final entry in snapshot.fieldHlcs.entries)
+        if (columns.contains(entry.key.$3)) entry.key: entry.value,
+    });
+    attemptedValues.addAll({
+      for (final entry in snapshot.attemptedValues.entries)
+        if (columns.contains(entry.key.$3)) entry.key: entry.value.copyWith(),
+    });
+  }
+
+  /// Snapshots the [columns] this reader loaded for [key], before projection
+  /// mutates them. A null snapshot records that the read found no such row.
+  _ProjectionReadSnapshot? _snapshotRow(MergeRowKey key, Set<String> columns) {
+    final row = rows[key];
+    if (row == null) return null;
+
+    final (table, id) = key;
+    final keys = {for (final column in columns) (table, id, column)};
+    return (
+      row: _copyProjectionRow(row),
+      columns: Set<String>.of(columns),
+      fieldIds: {
+        for (final key in keys)
+          if (fieldIds.containsKey(key)) key: fieldIds[key]!,
+      },
+      fieldHlcs: {
+        for (final key in keys)
+          if (fieldHlcs.containsKey(key)) key: fieldHlcs[key]!,
+      },
+      attemptedValues: {
+        for (final key in keys)
+          if (attemptedValues.containsKey(key)) key: attemptedValues[key]!.copyWith(),
+      },
+    );
   }
 
   Future<Map<String, Set<UuidValue>>> _loadRowsFromDatabase({
