@@ -27,8 +27,9 @@ void main() {
         final excluded = const Uuid().v7obj();
         expected = {};
         for (final space in [first, second, excluded]) {
+          // One more than a 1,000-id payload batch.
           final people = [
-            for (var index = 0; index < 105; index++)
+            for (var index = 0; index < 1001; index++)
               Person(id: const Uuid().v7obj(), name: '$space/$index'),
           ];
           if (space != excluded) {
@@ -77,7 +78,7 @@ void main() {
                 person.id!: (insert.uuidSpaceId, person.name),
           };
           expect(actual, expected);
-          expect(inserts, hasLength(212));
+          expect(inserts, hasLength(2004));
         });
 
         test('then rows from other tables retain their own payloads.', () {

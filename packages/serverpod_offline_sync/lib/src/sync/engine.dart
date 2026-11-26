@@ -636,8 +636,8 @@ class OfflineSyncEngine {
       final spaceId = row.spaceId;
       final spaceUuid = spaceUuidById[spaceId]!;
 
-      final columns = domainRows[(tableName, spaceId, row.uuidRowId)];
-      final owner = columns == null
+      final values = domainRows[(tableName, spaceId, row.uuidRowId)];
+      final owner = values == null
           ? await _readDomainRowOwner(
               session,
               tableName,
@@ -685,7 +685,7 @@ class OfflineSyncEngine {
           session,
           table,
           dartName,
-          columns!,
+          values!,
           attemptedValueFieldsByRowId[row.id!],
         ),
       );
@@ -889,32 +889,55 @@ class OfflineSyncEngine {
     }
 
     final payloads = <(String, int, UuidValue), Map<String, dynamic>>{};
-    for (final entry in groups.entries) {
-      final (tableName, spaceId) = entry.key;
-      final table = _syncTablesByName[tableName]!;
-      final columns = table.columns
-          .map(
-            (column) =>
-                '${_outboundColumnExpression(session, column)} AS "${column.columnName.escapeIdentifier()}"',
-          )
-          .join(', ');
-      final ids = entry.value.toList();
-      const batchSize = 100;
-      for (var start = 0; start < ids.length; start += batchSize) {
-        final batch = ids.skip(start).take(batchSize).map((id) => id.sqlLiteral());
-        final result = await session.db.unsafeQuery(
-          'SELECT $columns FROM "${tableName.escapeIdentifier()}" '
-          'WHERE "id" IN (${batch.join(', ')}) AND "spaceId" = ${spaceId.sqlLiteral()}',
-          transaction: transaction,
-        );
-        for (final row in result) {
-          final columns = row.toColumnMap();
-          final id = _serializationManager.deserialize<UuidValue>(columns['id']);
-          payloads[(tableName, spaceId, id)] = columns;
-        }
+    for (final MapEntry(key: (tableName, spaceId), value: ids) in groups.entries) {
+      for (final values in await _selectOwnedRows(
+        session,
+        _syncTablesByName[tableName]!,
+        spaceId,
+        ids,
+        transaction,
+      )) {
+        final id = _serializationManager.deserialize<UuidValue>(values['id']);
+        payloads[(tableName, spaceId, id)] = values;
       }
     }
     return payloads;
+  }
+
+  /// Ids per payload query. A capture keeps every payload until it emits them,
+  /// so this bounds the statement size and PostgreSQL planning, not memory.
+  /// Each extra query costs a round trip; much longer lists plan slower.
+  static const _payloadBatchSize = 1000;
+
+  /// Reads the rows in [ids] that [spaceId] still owns, [_payloadBatchSize] ids
+  /// per query, in [transaction]'s snapshot.
+  Future<List<Map<String, dynamic>>> _selectOwnedRows(
+    DatabaseSession session,
+    Table table,
+    int spaceId,
+    Set<UuidValue> ids,
+    Transaction transaction,
+  ) async {
+    final projection = table.columns
+        .map(
+          (column) =>
+              '${_outboundColumnExpression(session, column)} '
+              'AS "${column.columnName.escapeIdentifier()}"',
+        )
+        .join(', ');
+    final idList = ids.toList();
+    final rows = <Map<String, dynamic>>[];
+    for (var start = 0; start < idList.length; start += _payloadBatchSize) {
+      final batch = idList.skip(start).take(_payloadBatchSize);
+      final result = await session.db.unsafeQuery(
+        'SELECT $projection FROM "${table.tableName.escapeIdentifier()}" '
+        'WHERE "id" IN (${batch.sqlLiteralList()}) '
+        'AND "spaceId" = ${spaceId.sqlLiteral()}',
+        transaction: transaction,
+      );
+      rows.addAll(result.map((row) => row.toColumnMap()));
+    }
+    return rows;
   }
 
   /// Decodes a domain row for outbound insert sync.
@@ -930,7 +953,7 @@ class OfflineSyncEngine {
     DatabaseSession session,
     Table table,
     String dartName,
-    Map<String, dynamic> rawColumns,
+    Map<String, dynamic> rawValues,
     List<CrdtDataField>? attemptedValueFields,
   ) {
     final columnMap =
@@ -939,7 +962,7 @@ class OfflineSyncEngine {
               column.columnName: _decodeStructuredValue(
                 session,
                 column,
-                rawColumns[column.columnName],
+                rawValues[column.columnName],
               ),
           }
           // Domain columns hold visible/materialized FK values; restore attempted
