@@ -54,7 +54,10 @@ class Protocol extends _isd.DatabaseSerializationManager
         ],
       );
 
-  static List<_isd.TableDefinition> get targetTableDefinitions => [
+  static List<_isd.TableDefinition> get targetTableDefinitions =>
+      _ownTableDefinitions;
+
+  static List<_isd.TableDefinition> get _ownTableDefinitions => [
     _isd.TableDefinition(
       name: 'shared_child',
       dartName: 'SharedChild',
@@ -352,6 +355,9 @@ class Protocol extends _isd.DatabaseSerializationManager
   @override
   List<_isd.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
+
+  @override
+  List<_isd.TableDefinition> getOwnTableDefinitions() => _ownTableDefinitions;
 
   @override
   String getModuleName() => 'serverpod_offline_sync_test';

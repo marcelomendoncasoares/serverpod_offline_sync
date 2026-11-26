@@ -224,6 +224,13 @@ class Protocol extends _is.DatabaseSerializationManager
       );
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
+    ..._ownTableDefinitions,
+    ..._iacs.Protocol().getOwnTableDefinitions(),
+    ..._izehhkf5.Protocol().getOwnTableDefinitions(),
+    ..._isp.Protocol.targetTableDefinitions,
+  ];
+
+  static List<_isp.TableDefinition> get _ownTableDefinitions => [
     _isp.TableDefinition(
       name: 'address',
       dartName: 'Address',
@@ -2401,13 +2408,10 @@ class Protocol extends _is.DatabaseSerializationManager
       ],
       managed: true,
     ),
-    ..._iacs.Protocol.targetTableDefinitions,
-    ..._izehhkf5.Protocol.targetTableDefinitions,
     ..._i2ap9bqs.Protocol() is _is.DatabaseSerializationManager
         ? (_i2ap9bqs.Protocol() as _is.DatabaseSerializationManager)
-              .getTargetTableDefinitions()
+              .getOwnTableDefinitions()
         : [],
-    ..._isp.Protocol.targetTableDefinitions,
   ];
 
   static String? getClassNameFromObjectJson(dynamic data) =>
@@ -3136,6 +3140,9 @@ class Protocol extends _is.DatabaseSerializationManager
   @override
   List<_isp.TableDefinition> getTargetTableDefinitions() =>
       targetTableDefinitions;
+
+  @override
+  List<_isp.TableDefinition> getOwnTableDefinitions() => _ownTableDefinitions;
 
   @override
   String getModuleName() => 'serverpod_offline_sync_test';
