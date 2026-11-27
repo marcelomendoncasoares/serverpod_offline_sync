@@ -2,6 +2,8 @@
 
 Finite and continuous synchronization use the same bidirectional streaming endpoint. Client and server must use the same protocol; this experimental package does not negotiate an older wire format.
 
+Databases written by earlier versions can't be upgraded in place. The generated migration drops the field and tombstone metadata and leaves existing rows at revision 0, which is never sent. Start from empty client and server databases.
+
 ## Initialization and permissions
 
 Each peer sends `Connect` with its replica epoch, schema hash and space grants, followed by per-space `SinceRevision` receipts. A receipt identifies the sender epoch and the highest completely applied revision from that sender. The durable local node UUID is the replica epoch; recreating a database creates a new epoch. A sender ignores receipts for other epochs and rejects a receipt beyond its own committed revision. The server supplies authoritative grants. A follower's cached grants never authorize access on the server.

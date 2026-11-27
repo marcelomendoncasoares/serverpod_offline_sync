@@ -12,8 +12,15 @@ class _Migration20261029055700456 implements MigrationVersionSql {
   @override
   String get migrationSql => '''BEGIN;
 
--- Preserve authored metadata identities and dependent attempted values.
-CREATE TABLE "new_crdt_data_fields" (
+--
+-- ACTION DROP TABLE
+--
+DROP TABLE "crdt_data_fields";
+
+--
+-- ACTION CREATE TABLE
+--
+CREATE TABLE "crdt_data_fields" (
     "id" INTEGER PRIMARY KEY,
     "hlcDatetime" INTEGER NOT NULL,
     "hlcCounter" INTEGER NOT NULL,
@@ -28,10 +35,6 @@ CREATE TABLE "new_crdt_data_fields" (
     CONSTRAINT "crdt_data_fields_fk_2" FOREIGN KEY ("columnId") REFERENCES "crdt_schema_columns" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "crdt_data_fields_fk_3" FOREIGN KEY ("nodeId") REFERENCES "crdt_nodes" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 ) STRICT;
-
-INSERT INTO "new_crdt_data_fields" ("id", "hlcDatetime", "hlcCounter", "rowId", "columnId", "nodeId", "spaceId") SELECT f."id", f."hlcDatetime", f."hlcCounter", f."rowId", f."columnId", f."nodeId", r."spaceId" FROM "crdt_data_fields" f JOIN "crdt_data_rows" r ON r."id" = f."rowId";
-DROP TABLE "crdt_data_fields";
-ALTER TABLE "new_crdt_data_fields" RENAME TO "crdt_data_fields";
 
 -- Indexes
 CREATE UNIQUE INDEX "crdt_data_fields_row_column_idx" ON "crdt_data_fields" ("rowId", "columnId");
@@ -67,8 +70,15 @@ CREATE UNIQUE INDEX "crdt_data_rows_space_tbl_row_idx" ON "crdt_data_rows" ("spa
 -- Indexes
 CREATE INDEX "crdt_data_rows_space_revision_idx" ON "crdt_data_rows" ("spaceId", "syncRevision");
 
--- Preserve authored metadata identities and dependent attempted values.
-CREATE TABLE "new_crdt_data_tombstone" (
+--
+-- ACTION DROP TABLE
+--
+DROP TABLE "crdt_data_tombstone";
+
+--
+-- ACTION CREATE TABLE
+--
+CREATE TABLE "crdt_data_tombstone" (
     "id" INTEGER PRIMARY KEY,
     "hlcDatetime" INTEGER NOT NULL,
     "hlcCounter" INTEGER NOT NULL,
@@ -83,10 +93,6 @@ CREATE TABLE "new_crdt_data_tombstone" (
     CONSTRAINT "crdt_data_tombstone_fk_1" FOREIGN KEY ("rowId") REFERENCES "crdt_data_rows" ("id") ON DELETE CASCADE ON UPDATE NO ACTION,
     CONSTRAINT "crdt_data_tombstone_fk_2" FOREIGN KEY ("nodeId") REFERENCES "crdt_nodes" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION
 ) STRICT;
-
-INSERT INTO "new_crdt_data_tombstone" ("id", "hlcDatetime", "hlcCounter", "rowId", "nodeId", "clFlag", "reason", "spaceId") SELECT f."id", f."hlcDatetime", f."hlcCounter", f."rowId", f."nodeId", f."clFlag", f."reason", r."spaceId" FROM "crdt_data_tombstone" f JOIN "crdt_data_rows" r ON r."id" = f."rowId";
-DROP TABLE "crdt_data_tombstone";
-ALTER TABLE "new_crdt_data_tombstone" RENAME TO "crdt_data_tombstone";
 
 -- Indexes
 CREATE UNIQUE INDEX "crdt_data_tombstone_row_idx" ON "crdt_data_tombstone" ("rowId");
@@ -308,13 +314,6 @@ INSERT INTO "serverpod_migrations" ("module", "version", "timestamp")
     ON CONFLICT ("module")
     DO UPDATE SET "version" = '20261029055509545', "timestamp" = (unixepoch('now', 'subsecond') * 1000);
 
-
--- Existing facts have unknown immediate provenance and must be visible from cursor zero.
-UPDATE "crdt_data_rows" SET "syncRevision" = 1;
-UPDATE "crdt_data_fields" SET "syncRevision" = 1;
-UPDATE "crdt_data_tombstone" SET "syncRevision" = 1;
-UPDATE "offline_sync_spaces" SET "syncRevision" = 1
-WHERE EXISTS (SELECT 1 FROM "crdt_data_rows" r WHERE r."spaceId" = "offline_sync_spaces"."id");
 
 COMMIT;
 ''';
