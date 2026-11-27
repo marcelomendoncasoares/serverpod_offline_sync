@@ -9,7 +9,15 @@ import 'package:test/test.dart';
 import 'client_session.dart';
 import 'sync_topology.dart';
 
-/// A current-protocol peer against the public engine and a real database.
+/// A scripted follower driving the real authoritative session ([OfflineSyncEngine.sync])
+/// over in-memory frames, against a real database.
+///
+/// Only the server side runs production code. The follower side is written by
+/// hand from the protocol: it answers `Connect` with a fresh epoch and no grants,
+/// each `SinceRevision` with empty receipts and `Ready` with `Ready`, and
+/// acknowledges every server batch with `Committed`. [sendBatch] uploads one
+/// numbered batch whose per-space bound is its batch id.
+///
 /// Commit acknowledgements and capture diagnostics provide explicit barriers.
 class FramedSyncPeer {
   final inbound = StreamController<OfflineSyncStreamEvent>();
