@@ -255,6 +255,55 @@ void main() {
     });
   });
 
+  group('Given a receipt at revision 5 from one immediate peer,', () {
+    late SyncNode node;
+    late int peerId;
+
+    setUpAll(() async {
+      node = await syncNode(await createAdditionalTestSession(), [Person.t]);
+      peerId = (await node.sync.resolvePeer(
+        node.raw,
+        testCrdtUserId,
+        const Uuid().v7obj(),
+      )).id!;
+      await node.sync.mergeInboundBatch(
+        node.raw,
+        userId: testCrdtUserId,
+        spaceId: testCrdtUserId,
+        mergeSet: const [],
+        sourcePeerId: peerId,
+        receivedRevision: 5,
+      );
+    });
+
+    group('when a batch from that peer with a lower bound commits afterwards,', () {
+      late List<int> receipts;
+
+      setUpAll(() async {
+        await node.sync.mergeInboundBatch(
+          node.raw,
+          userId: testCrdtUserId,
+          spaceId: testCrdtUserId,
+          mergeSet: const [],
+          sourcePeerId: peerId,
+          receivedRevision: 3,
+        );
+        receipts = [
+          for (final receipt in (await node.sync.createSyncSinceRevision(
+            node.raw,
+            userId: testCrdtUserId,
+            spaceId: testCrdtUserId,
+          )).nodeCheckpoints)
+            receipt.revision,
+        ];
+      });
+
+      test('then the receipt stays at revision 5.', () {
+        expect(receipts, [5]);
+      });
+    });
+  });
+
   group('Given a space whose peer advertises a cursor beyond this database epoch,', () {
     late SyncNode node;
 

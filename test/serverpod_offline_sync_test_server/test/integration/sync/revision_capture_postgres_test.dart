@@ -219,6 +219,58 @@ ANALYZE "crdt_data_tombstone";
           );
         },
       );
+
+      group('Given a PostgreSQL receipt at revision 5 from one immediate peer,', () {
+        late Session raw;
+        late OfflineSyncEngine engine;
+        late UuidValue user;
+        late int peerId;
+
+        setUpAll(() async {
+          raw = sessionBuilder.build();
+          user = const Uuid().v7obj();
+          engine = OfflineSyncEngine(
+            syncTables: [Person.t],
+            serializationManager: raw.db.serializationManager,
+          );
+          peerId = (await engine.resolvePeer(raw, user, const Uuid().v7obj())).id!;
+          await engine.mergeInboundBatch(
+            raw,
+            userId: user,
+            spaceId: user,
+            mergeSet: const [],
+            sourcePeerId: peerId,
+            receivedRevision: 5,
+          );
+        });
+
+        group('when a batch from that peer with a lower bound commits afterwards,', () {
+          late List<int> receipts;
+
+          setUpAll(() async {
+            await engine.mergeInboundBatch(
+              raw,
+              userId: user,
+              spaceId: user,
+              mergeSet: const [],
+              sourcePeerId: peerId,
+              receivedRevision: 3,
+            );
+            receipts = [
+              for (final receipt in (await engine.createSyncSinceRevision(
+                raw,
+                userId: user,
+                spaceId: user,
+              )).nodeCheckpoints)
+                receipt.revision,
+            ];
+          });
+
+          test('then the receipt stays at revision 5.', () {
+            expect(receipts, [5]);
+          });
+        });
+      });
     },
     rollbackDatabase: RollbackDatabase.disabled,
     serverDirectory: serverDirectory,

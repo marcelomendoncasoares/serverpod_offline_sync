@@ -246,13 +246,21 @@ class CrdtRecorderContext {
     int peerId,
     int revision,
     Transaction transaction,
-  ) => database.unsafeExecute(
-    '''INSERT INTO "offline_sync_peer_checkpoints" ("spaceId", "peerId", "revision")
-VALUES (${spaceIdFor(transaction)}, $peerId, $revision)
-ON CONFLICT ("spaceId", "peerId") DO UPDATE SET "revision" =
-CASE WHEN excluded."revision" > "offline_sync_peer_checkpoints"."revision"
-THEN excluded."revision" ELSE "offline_sync_peer_checkpoints"."revision" END''',
+  ) => OfflineSyncPeerCheckpoint.db.upsert(
+    databaseSession,
+    [
+      OfflineSyncPeerCheckpoint(
+        spaceId: spaceIdFor(transaction),
+        peerId: peerId,
+        revision: revision,
+      ),
+    ],
+    conflictColumns: (t) => [t.spaceId, t.peerId],
+    updateColumns: (t) => [t.revision],
+    // Merges from one peer can commit out of bound order; never move back.
+    updateWhere: (t) => t.revision < revision,
     transaction: transaction,
+    noReturn: true,
   );
 
   /// Stores the clock and the high-water mark of each space it was used in,
