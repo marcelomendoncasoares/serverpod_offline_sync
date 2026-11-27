@@ -283,139 +283,198 @@ void main() {
     },
   );
 
-  test(
-    'Given an authoritative session with its own grants and cursors, '
-    'when the follower has not sent its identity yet, '
-    'then initialization is already announced as ready.',
-    () async {
-      final peer = await _Peer.start();
+  group('Given an authoritative session with its own grants and cursors,', () {
+    late _Peer peer;
 
-      await peer.waitFor<OfflineSyncReady>();
-      final events = List.of(peer.events);
+    setUpAll(() async {
+      peer = await _Peer.start();
+    });
 
-      expect(events, hasLength(3));
-      expect(events.first, isA<OfflineSyncConnect>());
-      expect(events[1], isA<OfflineSyncSinceRevision>());
-      expect(events.last, isA<OfflineSyncReady>());
+    group('when the follower has not sent its identity yet,', () {
+      late List<OfflineSyncStreamEvent> events;
+
+      setUpAll(() async {
+        await peer.waitFor<OfflineSyncReady>();
+        events = List.of(peer.events);
+      });
+
+      test('then initialization is already announced as ready.', () {
+        expect(events, hasLength(3));
+        expect(events.first, isA<OfflineSyncConnect>());
+        expect(events[1], isA<OfflineSyncSinceRevision>());
+        expect(events.last, isA<OfflineSyncReady>());
+      });
+    });
+  });
+
+  group('Given a session awaiting its peer identity,', () {
+    late _Peer peer;
+
+    setUpAll(() async {
+      peer = await _Peer.start();
+    });
+
+    group('when a batch boundary arrives first,', () {
+      late Object? error;
+
+      setUpAll(() async {
+        peer.send(_boundary(batchId: 1, finalForOnce: false));
+        error = await peer.done.future;
+      });
+
+      test('then it rejects the invalid frame order.', () {
+        expect(error, isA<OfflineSyncUnexpectedEventException>());
+      });
+    });
+  });
+
+  group(
+    'Given a finite follower that knows its server grants but cannot capture yet,',
+    () {
+      late _Peer peer;
+      late List<OfflineSyncStreamEvent> before;
+
+      setUpAll(() async {
+        final initialized = Completer<void>();
+        peer = await OfflineSyncDiagnostics.run((event) {
+          if (event['name'] == 'sync.stage' &&
+              (event['data']! as Map)['phase'] == 'active' &&
+              !initialized.isCompleted) {
+            initialized.complete();
+          }
+        }, () => _Peer.start(once: true, mode: OfflineSyncPeerMode.follower));
+        final connect = await peer.waitFor<OfflineSyncConnect>();
+        peer
+          ..send(connect)
+          ..send(
+            OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []),
+          );
+        await initialized.future.timeout(const Duration(seconds: 5));
+        before = List.of(peer.events);
+      });
+
+      group('when server readiness allows it to prepare the upload,', () {
+        late OfflineSyncEndOfBatch boundary;
+        late List<OfflineSyncStreamEvent> after;
+
+        setUpAll(() async {
+          peer.send(OfflineSyncReady());
+          boundary = await peer.waitFor<OfflineSyncEndOfBatch>();
+          after = List.of(peer.events);
+        });
+
+        test(
+          'then it announces its readiness immediately before that finite batch.',
+          () {
+            expect(before.whereType<OfflineSyncReady>(), isEmpty);
+            expect(after.whereType<OfflineSyncReady>(), hasLength(1));
+            expect(after[after.indexOf(boundary) - 1], isA<OfflineSyncReady>());
+            expect(boundary.finalForOnce, isTrue);
+          },
+        );
+      });
     },
   );
 
-  test(
-    'Given a session awaiting its peer identity, '
-    'when a batch boundary arrives first, '
-    'then it rejects the invalid frame order.',
-    () async {
-      final peer = await _Peer.start();
+  group('Given a continuous follower that knows its server grants,', () {
+    late _Peer peer;
 
-      peer.send(_boundary(batchId: 1, finalForOnce: false));
-      final error = await peer.done.future;
-
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-    },
-  );
-
-  test(
-    'Given a finite follower that knows its server grants but cannot capture yet, '
-    'when server readiness allows it to prepare the upload, '
-    'then it announces its readiness immediately before that finite batch.',
-    () async {
-      final initialized = Completer<void>();
-      final peer = await OfflineSyncDiagnostics.run((event) {
-        if (event['name'] == 'sync.stage' &&
-            (event['data']! as Map)['phase'] == 'active' &&
-            !initialized.isCompleted) {
-          initialized.complete();
-        }
-      }, () => _Peer.start(once: true, mode: OfflineSyncPeerMode.follower));
+    setUpAll(() async {
+      peer = await _Peer.start(mode: OfflineSyncPeerMode.follower);
       final connect = await peer.waitFor<OfflineSyncConnect>();
       peer
         ..send(connect)
         ..send(
           OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []),
         );
-      await initialized.future.timeout(const Duration(seconds: 5));
-      final before = List.of(peer.events);
+    });
 
-      peer.send(OfflineSyncReady());
-      final boundary = await peer.waitFor<OfflineSyncEndOfBatch>();
-      final after = List.of(peer.events);
+    group('when the server has not announced readiness,', () {
+      late List<OfflineSyncStreamEvent> events;
 
-      expect(before.whereType<OfflineSyncReady>(), isEmpty);
-      expect(after.whereType<OfflineSyncReady>(), hasLength(1));
-      expect(after[after.indexOf(boundary) - 1], isA<OfflineSyncReady>());
-      expect(boundary.finalForOnce, isTrue);
-    },
-  );
+      setUpAll(() async {
+        await peer.waitFor<OfflineSyncReady>();
+        events = List.of(peer.events);
+      });
 
-  test(
-    'Given a continuous follower that knows its server grants, '
-    'when the server has not announced readiness, '
-    'then the follower still announces readiness independently.',
-    () async {
-      final peer = await _Peer.start(mode: OfflineSyncPeerMode.follower);
-      final connect = await peer.waitFor<OfflineSyncConnect>();
+      test('then the follower still announces readiness independently.', () {
+        expect(events.whereType<OfflineSyncReady>(), hasLength(1));
+        expect(events.whereType<OfflineSyncEndOfBatch>(), isEmpty);
+      });
+    });
+  });
 
-      peer
-        ..send(connect)
-        ..send(
-          OfflineSyncSinceRevision(uuidSpaceId: testCrdtUserId, nodeCheckpoints: []),
-        );
-      await peer.waitFor<OfflineSyncReady>();
-      final events = List.of(peer.events);
+  group('Given a finite session awaiting its peer identity,', () {
+    late _Peer peer;
 
-      expect(events.whereType<OfflineSyncReady>(), hasLength(1));
-      expect(events.whereType<OfflineSyncEndOfBatch>(), isEmpty);
-    },
-  );
+    setUpAll(() async {
+      peer = await _Peer.start(once: true);
+    });
 
-  test(
-    'Given a finite session awaiting its peer identity, '
-    'when the transport closes without a frame, '
-    'then it reports truncation.',
-    () async {
-      final peer = await _Peer.start(once: true);
+    group('when the transport closes without a frame,', () {
+      late Object? error;
 
-      unawaited(peer.input.close());
-      final error = await peer.done.future;
+      setUpAll(() async {
+        unawaited(peer.input.close());
+        error = await peer.done.future;
+      });
 
-      expect(error, isA<OfflineSyncStreamClosedException>());
-    },
-  );
+      test('then it reports truncation.', () {
+        expect(error, isA<OfflineSyncStreamClosedException>());
+      });
+    });
+  });
 
-  test(
-    'Given a follower whose finite upload is acknowledged, '
-    'when it commits the final download and sends its acknowledgement, '
-    'then it completes with both durable boundaries without another server frame.',
-    () async {
-      final peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
+  group('Given a follower whose finite upload is acknowledged,', () {
+    late _Peer peer;
+
+    setUpAll(() async {
+      peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
       final upload = await peer.waitFor<OfflineSyncEndOfBatch>();
       peer.send(OfflineSyncCommitted(batchId: upload.batchId));
-      final downloaded = _insert('final download');
+    });
 
-      peer
-        ..send(OfflineSyncMergeChunk(batchId: 1, changes: [downloaded]))
-        ..send(_boundary(batchId: 1, finalForOnce: true));
-      final error = await peer.done.future.timeout(const Duration(seconds: 5));
-      final row = await Unique.db.findById(peer.node.raw, downloaded.uuidRowId);
-      final cursor = await peer.node.sync.createSyncSinceRevision(
-        peer.node.raw,
-        userId: testCrdtUserId,
-        spaceId: testCrdtUserId,
-      );
+    group('when it commits the final download and sends its acknowledgement,', () {
+      late Object? error;
+      late Unique? row;
+      late OfflineSyncSinceRevision cursor;
+      late List<OfflineSyncStreamEvent> events;
+      late bool inputClosed;
 
-      expect(error, isNull);
-      expect(row?.name, 'final download');
-      expect(
-        cursor.nodeCheckpoints
-            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
-            .single
-            .revision,
-        1,
+      setUpAll(() async {
+        final downloaded = _insert('final download');
+        peer
+          ..send(OfflineSyncMergeChunk(batchId: 1, changes: [downloaded]))
+          ..send(_boundary(batchId: 1, finalForOnce: true));
+        error = await peer.done.future.timeout(const Duration(seconds: 5));
+        row = await Unique.db.findById(peer.node.raw, downloaded.uuidRowId);
+        cursor = await peer.node.sync.createSyncSinceRevision(
+          peer.node.raw,
+          userId: testCrdtUserId,
+          spaceId: testCrdtUserId,
+        );
+        events = List.of(peer.events);
+        inputClosed = peer.input.isClosed;
+      });
+
+      test(
+        'then it completes with both durable boundaries without another server frame.',
+        () {
+          expect(error, isNull);
+          expect(row?.name, 'final download');
+          expect(
+            cursor.nodeCheckpoints
+                .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+                .single
+                .revision,
+            1,
+          );
+          expect(events.whereType<OfflineSyncCommitted>().single.batchId, 1);
+          expect(inputClosed, isFalse);
+        },
       );
-      expect(peer.events.whereType<OfflineSyncCommitted>().single.batchId, 1);
-      expect(peer.input.isClosed, isFalse);
-    },
-  );
+    });
+  });
 
   group('Given a finite server preparing its space membership before capture,', () {
     late _HoldMembershipDatabase gate;
@@ -568,19 +627,20 @@ void main() {
     });
   });
 
-  test(
-    'Given a finite server with existing data and a partial upload, '
-    'when the upload has not sent its end marker, '
-    'then the server can send existing changes without waiting for the upload.',
-    () async {
+  group('Given a finite server with existing data and a partial upload,', () {
+    late _HoldMembershipDatabase gate;
+    late SyncNode node;
+    late _Peer peer;
+
+    setUpAll(() async {
       final raw = await createAdditionalTestSession();
-      final gate = _HoldMembershipDatabase(raw.db, syncTables: testSyncTables);
+      gate = _HoldMembershipDatabase(raw.db, syncTables: testSyncTables);
       final wrapped = OfflineSyncDatabaseSession(gate, syncTables: testSyncTables);
-      final node = await syncNode(wrapped, testSyncTables);
+      node = await syncNode(wrapped, testSyncTables);
       await node.offlineSync.db.mergeChanges([
         _insert('download during upload'),
       ], userId: testCrdtUserId);
-      final peer = await _Peer.open(once: true, node: node);
+      peer = await _Peer.open(once: true, node: node);
       addTearDown(() {
         if (!gate.release.isCompleted) gate.release.complete();
       });
@@ -589,138 +649,208 @@ void main() {
       peer.send(
         OfflineSyncMergeChunk(batchId: 1, changes: [_insert('partial upload')]),
       );
-      gate.release.complete();
-      final boundary = await peer.waitFor<OfflineSyncEndOfBatch>();
-      final changes = peer.events
-          .whereType<OfflineSyncMergeChunk>()
-          .expand((event) => event.changes)
-          .toList();
-      final rows = await Unique.db.find(node.raw);
+    });
 
-      expect(boundary.finalForOnce, isFalse);
-      expect(
-        (changes.single as CrdtMergeInsert).data,
-        isA<Unique>().having((row) => row.name, 'name', 'download during upload'),
+    group('when the upload has not sent its end marker,', () {
+      late OfflineSyncEndOfBatch boundary;
+      late List<CrdtMergeChange> changes;
+      late List<Unique> rows;
+      late List<OfflineSyncStreamEvent> events;
+
+      setUpAll(() async {
+        gate.release.complete();
+        boundary = await peer.waitFor<OfflineSyncEndOfBatch>();
+        changes = peer.events
+            .whereType<OfflineSyncMergeChunk>()
+            .expand((event) => event.changes)
+            .toList();
+        rows = await Unique.db.find(node.raw);
+        events = List.of(peer.events);
+      });
+
+      test(
+        'then the server can send existing changes without waiting for the upload.',
+        () {
+          expect(boundary.finalForOnce, isFalse);
+          expect(
+            (changes.single as CrdtMergeInsert).data,
+            isA<Unique>().having((row) => row.name, 'name', 'download during upload'),
+          );
+          expect(rows.map((row) => row.name), ['download during upload']);
+          expect(events.whereType<OfflineSyncCommitted>(), isEmpty);
+        },
       );
-      expect(rows.map((row) => row.name), ['download during upload']);
-      expect(peer.events.whereType<OfflineSyncCommitted>(), isEmpty);
-    },
-  );
+    });
+  });
 
-  test(
-    'Given a connected peer with a multi-chunk batch, '
-    'when its numbered end marker arrives, '
-    'then its acknowledgement proves both rows and their cursor are durable.',
-    () async {
-      final peer = await _Peer.open();
+  group('Given a connected peer with a multi-chunk batch,', () {
+    late _Peer peer;
+
+    setUpAll(() async {
+      peer = await _Peer.open();
       final first = _insert('first');
       final second = _insert('second').copyWith(
         uuidNodeId: first.uuidNodeId,
         hlcDatetime: first.hlcDatetime.add(const Duration(seconds: 1)),
       );
-
       peer
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [first]))
-        ..send(OfflineSyncMergeChunk(batchId: 1, changes: [second]))
-        ..send(_boundary(batchId: 1, finalForOnce: false));
-      await peer.waitFor<OfflineSyncCommitted>();
-      final rows = await Unique.db.find(peer.node.raw);
-      final cursor = await peer.node.sync.createSyncSinceRevision(
-        peer.node.raw,
-        userId: testCrdtUserId,
-        spaceId: testCrdtUserId,
+        ..send(OfflineSyncMergeChunk(batchId: 1, changes: [second]));
+    });
+
+    group('when its numbered end marker arrives,', () {
+      late List<Unique> rows;
+      late OfflineSyncSinceRevision cursor;
+
+      setUpAll(() async {
+        peer.send(_boundary(batchId: 1, finalForOnce: false));
+        await peer.waitFor<OfflineSyncCommitted>();
+        rows = await Unique.db.find(peer.node.raw);
+        cursor = await peer.node.sync.createSyncSinceRevision(
+          peer.node.raw,
+          userId: testCrdtUserId,
+          spaceId: testCrdtUserId,
+        );
+      });
+
+      test(
+        'then its acknowledgement proves both rows and their cursor are durable.',
+        () {
+          expect(rows.map((r) => r.name), unorderedEquals(['first', 'second']));
+          expect(
+            cursor.nodeCheckpoints
+                .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+                .single
+                .revision,
+            1,
+          );
+        },
       );
+    });
+  });
 
-      expect(rows.map((r) => r.name), unorderedEquals(['first', 'second']));
-      expect(
-        cursor.nodeCheckpoints
-            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
-            .single
-            .revision,
-        1,
-      );
-    },
-  );
+  group('Given a connected peer with no changes,', () {
+    late _Peer peer;
 
-  test(
-    'Given a connected peer with no changes, '
-    'when it sends an empty numbered batch, '
-    'then it receives an acknowledgement without creating domain rows.',
-    () async {
-      final peer = await _Peer.open();
+    setUpAll(() async {
+      peer = await _Peer.open();
+    });
 
-      peer.send(_boundary(batchId: 1, finalForOnce: false));
-      final ack = await peer.waitFor<OfflineSyncCommitted>();
-      final rows = await Unique.db.find(peer.node.raw);
+    group('when it sends an empty numbered batch,', () {
+      late OfflineSyncCommitted ack;
+      late List<Unique> rows;
 
-      expect(ack.batchId, 1);
-      expect(rows, isEmpty);
-    },
-  );
+      setUpAll(() async {
+        peer.send(_boundary(batchId: 1, finalForOnce: false));
+        ack = await peer.waitFor<OfflineSyncCommitted>();
+        rows = await Unique.db.find(peer.node.raw);
+      });
 
-  test(
-    'Given an established peer expecting its first batch, '
-    'when a different batch number is terminated, '
-    'then the session rejects it without advancing a cursor.',
-    () async {
-      final peer = await _Peer.open();
+      test('then it receives an acknowledgement without creating domain rows.', () {
+        expect(ack.batchId, 1);
+        expect(rows, isEmpty);
+      });
+    });
+  });
 
-      peer.send(_boundary(batchId: 2, finalForOnce: false));
-      final error = await peer.done.future;
-      final nodes = await OfflineSyncSpaceNode.db.find(peer.node.raw);
+  group('Given an established peer expecting its first batch,', () {
+    late _Peer peer;
 
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-      expect(peer.events.whereType<OfflineSyncCommitted>(), isEmpty);
-      expect(nodes.where((n) => n.lastReceivedHlc != null), isEmpty);
-    },
-  );
+    setUpAll(() async {
+      peer = await _Peer.open();
+    });
 
-  test(
-    'Given an established peer with no outbound batch, '
-    'when it acknowledges a nonexistent batch, '
-    'then the session rejects the acknowledgement.',
-    () async {
-      final peer = await _Peer.open();
+    group('when a different batch number is terminated,', () {
+      late Object? error;
+      late List<OfflineSyncStreamEvent> events;
+      late List<OfflineSyncSpaceNode> nodes;
 
-      peer.send(OfflineSyncCommitted(batchId: 1));
-      final error = await peer.done.future;
+      setUpAll(() async {
+        peer.send(_boundary(batchId: 2, finalForOnce: false));
+        error = await peer.done.future;
+        events = List.of(peer.events);
+        nodes = await OfflineSyncSpaceNode.db.find(peer.node.raw);
+      });
 
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-    },
-  );
+      test('then the session rejects it without advancing a cursor.', () {
+        expect(error, isA<OfflineSyncUnexpectedEventException>());
+        expect(events.whereType<OfflineSyncCommitted>(), isEmpty);
+        expect(nodes.where((n) => n.lastReceivedHlc != null), isEmpty);
+      });
+    });
+  });
 
-  test(
-    'Given a peer that already sent its identity, '
-    'when it sends another Connect, '
-    'then the session rejects reinitialization.',
-    () async {
-      final peer = await _Peer.open();
+  group('Given an established peer with no outbound batch,', () {
+    late _Peer peer;
 
-      peer.send(peer.hello);
-      final error = await peer.done.future;
+    setUpAll(() async {
+      peer = await _Peer.open();
+    });
 
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-    },
-  );
+    group('when it acknowledges a nonexistent batch,', () {
+      late Object? error;
 
-  test(
-    'Given an established peer holding a partial batch, '
-    'when transport EOF arrives without its end marker, '
-    'then the session fails and does not apply the partial row.',
-    () async {
-      final peer = await _Peer.open();
-      final change = _insert('partial');
+      setUpAll(() async {
+        peer.send(OfflineSyncCommitted(batchId: 1));
+        error = await peer.done.future;
+      });
 
+      test('then the session rejects the acknowledgement.', () {
+        expect(error, isA<OfflineSyncUnexpectedEventException>());
+      });
+    });
+  });
+
+  group('Given a peer that already sent its identity,', () {
+    late _Peer peer;
+
+    setUpAll(() async {
+      peer = await _Peer.open();
+    });
+
+    group('when it sends another Connect,', () {
+      late Object? error;
+
+      setUpAll(() async {
+        peer.send(peer.hello);
+        error = await peer.done.future;
+      });
+
+      test('then the session rejects reinitialization.', () {
+        expect(error, isA<OfflineSyncUnexpectedEventException>());
+      });
+    });
+  });
+
+  group('Given an established peer holding a partial batch,', () {
+    late _Peer peer;
+    late CrdtMergeInsert change;
+
+    setUpAll(() async {
+      peer = await _Peer.open();
+      change = _insert('partial');
       peer.send(OfflineSyncMergeChunk(batchId: 1, changes: [change]));
-      unawaited(peer.input.close());
-      final error = await peer.done.future;
-      final row = await Unique.db.findById(peer.node.raw, change.uuidRowId);
+    });
 
-      expect(error, isA<OfflineSyncStreamClosedException>());
-      expect(row, isNull);
-      expect(peer.events.whereType<OfflineSyncCommitted>(), isEmpty);
-    },
-  );
+    group('when transport EOF arrives without its end marker,', () {
+      late Object? error;
+      late Unique? row;
+      late List<OfflineSyncStreamEvent> events;
+
+      setUpAll(() async {
+        unawaited(peer.input.close());
+        error = await peer.done.future;
+        row = await Unique.db.findById(peer.node.raw, change.uuidRowId);
+        events = List.of(peer.events);
+      });
+
+      test('then the session fails and does not apply the partial row.', () {
+        expect(error, isA<OfflineSyncStreamClosedException>());
+        expect(row, isNull);
+        expect(events.whereType<OfflineSyncCommitted>(), isEmpty);
+      });
+    });
+  });
 
   group('Given a finite server session and an uploaded insertion,', () {
     late _Peer peer;
@@ -773,112 +903,155 @@ void main() {
     });
   });
 
-  test(
-    'Given a finite session whose upload already committed, '
-    'when the transport closes before the download acknowledgement, '
-    'then the call fails while the committed upload remains resumable.',
-    () async {
-      final peer = await _Peer.open(once: true);
-      final insertion = _insert('committed before disconnect');
+  group('Given a finite session whose upload already committed,', () {
+    late _Peer peer;
+    late CrdtMergeInsert insertion;
 
+    setUpAll(() async {
+      peer = await _Peer.open(once: true);
+      insertion = _insert('committed before disconnect');
       peer
         ..send(OfflineSyncMergeChunk(batchId: 1, changes: [insertion]))
         ..send(_boundary(batchId: 1, finalForOnce: true));
       await peer.waitFor<OfflineSyncCommitted>();
       await peer.waitFor<OfflineSyncEndOfBatch>(where: (e) => e.finalForOnce);
-      unawaited(peer.input.close());
-      final error = await peer.done.future;
-      final row = await Unique.db.findById(peer.node.raw, insertion.uuidRowId);
-      final cursor = await peer.node.sync.createSyncSinceRevision(
-        peer.node.raw,
-        userId: testCrdtUserId,
-        spaceId: testCrdtUserId,
-      );
+    });
 
-      expect(error, isA<OfflineSyncStreamClosedException>());
-      expect(
-        row?.name,
-        insertion.data is Unique ? (insertion.data as Unique).name : null,
-      );
-      expect(
-        cursor.nodeCheckpoints
-            .where((c) => c.uuidNodeId == peer.hello.localNodeId)
-            .single
-            .revision,
-        1,
-      );
+    group('when the transport closes before the download acknowledgement,', () {
+      late Object? error;
+      late Unique? row;
+      late OfflineSyncSinceRevision cursor;
+
+      setUpAll(() async {
+        unawaited(peer.input.close());
+        error = await peer.done.future;
+        row = await Unique.db.findById(peer.node.raw, insertion.uuidRowId);
+        cursor = await peer.node.sync.createSyncSinceRevision(
+          peer.node.raw,
+          userId: testCrdtUserId,
+          spaceId: testCrdtUserId,
+        );
+      });
+
+      test('then the call fails while the committed upload remains resumable.', () {
+        expect(error, isA<OfflineSyncStreamClosedException>());
+        expect(
+          row?.name,
+          insertion.data is Unique ? (insertion.data as Unique).name : null,
+        );
+        expect(
+          cursor.nodeCheckpoints
+              .where((c) => c.uuidNodeId == peer.hello.localNodeId)
+              .single
+              .revision,
+          1,
+        );
+      });
+    });
+  });
+
+  group('Given a finite follower still awaiting its upload acknowledgement,', () {
+    late _Peer peer;
+
+    setUpAll(() async {
+      peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
+    });
+
+    group('when the server sends Close,', () {
+      late Object? error;
+
+      setUpAll(() async {
+        peer.send(OfflineSyncClose());
+        error = await peer.done.future;
+      });
+
+      test('then the follower rejects premature success.', () {
+        expect(error, isA<OfflineSyncUnexpectedEventException>());
+      });
+    });
+  });
+
+  group(
+    'Given a follower that applied its final download without an upload acknowledgement,',
+    () {
+      late _Peer peer;
+      late bool completedWithoutUploadAck;
+
+      setUpAll(() async {
+        peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
+        await peer.waitFor<OfflineSyncEndOfBatch>();
+        peer.send(_boundary(batchId: 1, finalForOnce: true));
+        await peer.waitFor<OfflineSyncCommitted>();
+        completedWithoutUploadAck = peer.done.isCompleted;
+      });
+
+      group('when the server requests closure,', () {
+        late Object? error;
+
+        setUpAll(() async {
+          peer.send(OfflineSyncClose());
+          error = await peer.done.future;
+        });
+
+        test(
+          'then the follower rejects completion because upload durability is unproven.',
+          () {
+            expect(completedWithoutUploadAck, isFalse);
+            expect(error, isA<OfflineSyncUnexpectedEventException>());
+          },
+        );
+      });
     },
   );
 
-  test(
-    'Given a finite follower still awaiting its upload acknowledgement, '
-    'when the server sends Close, '
-    'then the follower rejects premature success.',
-    () async {
-      final peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
+  group('Given a sender awaiting commitment of its first outbound batch,', () {
+    late _Peer peer;
+    late CrdtMergeInsert second;
+    late OfflineSyncEndOfBatch firstBatch;
 
-      peer.send(OfflineSyncClose());
-      final error = await peer.done.future;
-
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-    },
-  );
-
-  test(
-    'Given a follower that applied its final download without an upload acknowledgement, '
-    'when the server requests closure, '
-    'then the follower rejects completion because upload durability is unproven.',
-    () async {
-      final peer = await _Peer.open(once: true, mode: OfflineSyncPeerMode.follower);
-      await peer.waitFor<OfflineSyncEndOfBatch>();
-      peer.send(_boundary(batchId: 1, finalForOnce: true));
-      await peer.waitFor<OfflineSyncCommitted>();
-      final completedWithoutUploadAck = peer.done.isCompleted;
-
-      peer.send(OfflineSyncClose());
-      final error = await peer.done.future;
-
-      expect(completedWithoutUploadAck, isFalse);
-      expect(error, isA<OfflineSyncUnexpectedEventException>());
-    },
-  );
-
-  test(
-    'Given a sender awaiting commitment of its first outbound batch, '
-    'when another row commits and an inbound batch arrives, '
-    'then inbound acknowledgement proceeds before the next outbound batch.',
-    () async {
-      final peer = await _Peer.open();
+    setUpAll(() async {
+      peer = await _Peer.open();
       final first = _insert('outbound first');
-      final second = _insert('outbound second');
+      second = _insert('outbound second');
       await peer.node.offlineSync.db.mergeChanges([first], userId: testCrdtUserId);
       // This node deliberately uses a separate recorder context. An inbound
       // batch requests a capture without a wall-clock polling barrier.
       peer.send(_boundary(batchId: 1, finalForOnce: false));
-      final firstBatch = await peer.waitFor<OfflineSyncEndOfBatch>();
-      await peer.node.offlineSync.db.mergeChanges([second], userId: testCrdtUserId);
+      firstBatch = await peer.waitFor<OfflineSyncEndOfBatch>();
+    });
 
-      // An outbound boundary does not acknowledge the independent inbound
-      // direction. Finish inbound batch 1 before sending batch 2, while still
-      // withholding acknowledgement of the first outbound batch.
-      await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 1);
-      peer.send(_boundary(batchId: 2, finalForOnce: false));
-      await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 2);
-      final batchesBeforeAck = peer.events.whereType<OfflineSyncEndOfBatch>().length;
-      peer.send(OfflineSyncCommitted(batchId: firstBatch.batchId));
-      final next = await peer.waitFor<OfflineSyncEndOfBatch>(
-        where: (e) => e.batchId > firstBatch.batchId,
-      );
-      final rows = peer.events
-          .whereType<OfflineSyncMergeChunk>()
-          .where((e) => e.batchId == next.batchId)
-          .expand((e) => e.changes)
-          .toList();
+    group('when another row commits and an inbound batch arrives,', () {
+      late int batchesBeforeAck;
+      late List<CrdtMergeChange> rows;
 
-      expect(batchesBeforeAck, 1);
-      expect(rows.map((c) => c.uuidRowId), [second.uuidRowId]);
-    },
-  );
+      setUpAll(() async {
+        await peer.node.offlineSync.db.mergeChanges([second], userId: testCrdtUserId);
+
+        // An outbound boundary does not acknowledge the independent inbound
+        // direction. Finish inbound batch 1 before sending batch 2, while still
+        // withholding acknowledgement of the first outbound batch.
+        await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 1);
+        peer.send(_boundary(batchId: 2, finalForOnce: false));
+        await peer.waitFor<OfflineSyncCommitted>(where: (e) => e.batchId == 2);
+        batchesBeforeAck = peer.events.whereType<OfflineSyncEndOfBatch>().length;
+        peer.send(OfflineSyncCommitted(batchId: firstBatch.batchId));
+        final next = await peer.waitFor<OfflineSyncEndOfBatch>(
+          where: (e) => e.batchId > firstBatch.batchId,
+        );
+        rows = peer.events
+            .whereType<OfflineSyncMergeChunk>()
+            .where((e) => e.batchId == next.batchId)
+            .expand((e) => e.changes)
+            .toList();
+      });
+
+      test('then inbound acknowledgement proceeds before the next outbound batch.', () {
+        expect(batchesBeforeAck, 1);
+        expect(rows.map((c) => c.uuidRowId), [second.uuidRowId]);
+      });
+    });
+  });
+
   group('Given a receiver that committed a newer author fact,', () {
     late _Peer peer;
     late CrdtMergeInsert newer;

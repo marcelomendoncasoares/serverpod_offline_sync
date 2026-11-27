@@ -634,16 +634,21 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
         );
       });
 
-      test(
-        'Given an authorized upload queued behind global merge capacity, '
-        'when its shared-space grant is revoked before admission, '
-        'then the transaction rejects it without acknowledging or storing the row.',
-        () async {
+      group('Given an authorized upload queued behind global merge capacity,', () {
+        late OfflineSyncSpaceMember member;
+        late Completer<void> release;
+        late Future<server.Unique> holding;
+        late server.Unique row;
+        late Completer<void> finished;
+        late List<OfflineSyncCommitted> acknowledgements;
+        Object? streamError;
+
+        setUpAll(() async {
           final user = const Uuid().v7obj();
           final space = await OfflineSyncSpaceManager(
             observer,
           ).getOrCreate(const Uuid().v7obj());
-          final member = await OfflineSyncSpaceMember.db.insertRow(
+          member = await OfflineSyncSpaceMember.db.insertRow(
             observer,
             OfflineSyncSpaceMember(
               spaceId: space.id!,
@@ -653,12 +658,12 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
           );
           final shared = context(1);
           final entered = Completer<void>();
-          final release = Completer<void>();
+          release = Completer<void>();
           final holder = await wrapper(
             shared,
             database: _HoldMerge(sessions.build().db, entered, release),
           );
-          final holding = _merge(holder, user: const Uuid().v7obj());
+          holding = _merge(holder, user: const Uuid().v7obj());
           addTearDown(() async {
             if (!release.isCompleted) release.complete();
             await holding;
@@ -671,9 +676,8 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
           );
           final inbound = StreamController<OfflineSyncStreamEvent>();
           final queued = Completer<void>();
-          final finished = Completer<void>();
-          final acknowledgements = <OfflineSyncCommitted>[];
-          Object? error;
+          finished = Completer<void>();
+          acknowledgements = [];
           final subscription = OfflineSyncDiagnostics.run(
             (event) {
               if (event['name'] == 'queue.join' && !queued.isCompleted) {
@@ -691,7 +695,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                   (event) {
                     if (event is OfflineSyncCommitted) acknowledgements.add(event);
                   },
-                  onError: (Object failure) => error = failure,
+                  onError: (Object failure) => streamError = failure,
                   onDone: finished.complete,
                 ),
           );
@@ -699,7 +703,7 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             await subscription.cancel();
             if (!inbound.isClosed) unawaited(inbound.close());
           });
-          final row = server.Unique(
+          row = server.Unique(
             id: const Uuid().v7obj(),
             name: 'revoked while queued',
           );
@@ -749,22 +753,42 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
               ),
             );
           await queued.future.timeout(const Duration(seconds: 10));
-          await OfflineSyncSpaceMember.db.deleteRow(observer, member);
-          release.complete();
-          await holding;
-          await finished.future.timeout(const Duration(seconds: 10));
-          final persisted = await server.Unique.db.findById(observer, row.id!);
-          final violations = await OfflineSyncIntegrityViolation.db.find(
-            observer,
-            where: (t) => t.uuidRowId.equals(row.id),
-          );
+        });
 
-          expect(error, isA<OfflineSyncIntegrityViolationException>());
-          expect(persisted, isNull);
-          expect(acknowledgements, isEmpty);
-          expect(violations.single.type, OfflineSyncViolationType.unauthorizedWrite);
-        },
-      );
+        group('when its shared-space grant is revoked before admission,', () {
+          late Object? error;
+          late server.Unique? persisted;
+          late List<OfflineSyncIntegrityViolation> violations;
+          late List<OfflineSyncCommitted> acknowledged;
+
+          setUpAll(() async {
+            await OfflineSyncSpaceMember.db.deleteRow(observer, member);
+            release.complete();
+            await holding;
+            await finished.future.timeout(const Duration(seconds: 10));
+            error = streamError;
+            acknowledged = List.of(acknowledgements);
+            persisted = await server.Unique.db.findById(observer, row.id!);
+            violations = await OfflineSyncIntegrityViolation.db.find(
+              observer,
+              where: (t) => t.uuidRowId.equals(row.id),
+            );
+          });
+
+          test(
+            'then the transaction rejects it without acknowledging or storing the row.',
+            () {
+              expect(error, isA<OfflineSyncIntegrityViolationException>());
+              expect(persisted, isNull);
+              expect(acknowledged, isEmpty);
+              expect(
+                violations.single.type,
+                OfflineSyncViolationType.unauthorizedWrite,
+              );
+            },
+          );
+        });
+      });
 
       test(
         'Given independent admission contexts sharing a database, '
