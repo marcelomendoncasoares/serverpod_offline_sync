@@ -269,6 +269,8 @@ void main() {
         otherNode = await OfflineSyncSpaceManager(
           session,
         ).getOrCreateUserNode(otherUserId);
+        // A real write advances its space's counter with the fact; do the same, so
+        // the misplaced tracker is the only corruption under test.
         await OfflineSyncSpace.db.updateRow(
           session,
           otherSpace.copyWith(syncRevision: 1),
