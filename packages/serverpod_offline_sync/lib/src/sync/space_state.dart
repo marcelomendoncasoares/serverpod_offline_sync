@@ -194,14 +194,24 @@ class OfflineSyncSpaceState {
 
   /// Selects the durable receiver cursor for this database's current epoch.
   void recordPeerHandshake(UuidValue spaceId, OfflineSyncSinceRevision cursor) {
+    _checkpointsBySpace[spaceId] = receiptFor(cursor.nodeCheckpoints, localNodeId);
+  }
+
+  /// The peer's receipt in [localNodeId]'s revisions, 0 when it has none.
+  ///
+  /// Throws on a negative or duplicate entry, as a peer handshake does.
+  static int receiptFor(
+    Iterable<OfflineSyncNodeCheckpoint> checkpoints,
+    UuidValue localNodeId,
+  ) {
     final revisions = <UuidValue, int>{};
-    for (final checkpoint in cursor.nodeCheckpoints) {
+    for (final checkpoint in checkpoints) {
       if (checkpoint.revision < 0 || revisions.containsKey(checkpoint.uuidNodeId)) {
         throw StateError('Invalid or duplicate replica checkpoint.');
       }
       revisions[checkpoint.uuidNodeId] = checkpoint.revision;
     }
-    _checkpointsBySpace[spaceId] = revisions[localNodeId] ?? 0;
+    return revisions[localNodeId] ?? 0;
   }
 
   /// Receiver cursors for writable spaces with a completed handshake.
