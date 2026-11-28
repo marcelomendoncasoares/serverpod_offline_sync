@@ -14,6 +14,7 @@ import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart
 // ignore: implementation_imports
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart';
 
+import 'commit_hints.dart';
 import 'common.dart'
     show
         AdminToken,
@@ -217,6 +218,8 @@ class BenchmarkEndpoint extends Endpoint {
     final result = switch (input['action']) {
       'provision' => await _provision(session, input),
       'configureSampling' => _configureSampling(input),
+      'hintDelivery' => _configureHintDelivery(input),
+      'hintStatus' => _hintStatus(),
       'snapshot' => await _snapshot(session, input),
       'metrics' => await _metrics(session, exact: input['exact'] == true),
       'diagnostics' => serverDiagnostics.read(
@@ -231,6 +234,23 @@ class BenchmarkEndpoint extends Endpoint {
       _ => throw ArgumentError('Unknown benchmark action'),
     };
     return jsonEncode(result);
+  }
+
+  Map<String, dynamic> _hintStatus() => {
+    'instanceId': serverDiagnostics.instanceId,
+    'transport': benchmarkCommitHints?.status ?? {'enabled': false},
+    'streams': metrics.sample(),
+    'active': [for (final trace in serverDiagnostics.active.values) trace.identity],
+  };
+
+  Map<String, dynamic> _configureHintDelivery(Map<String, dynamic> input) {
+    if (metrics.sample()['open'] != 0) {
+      throw StateError('Close all sync streams before changing hint delivery.');
+    }
+    final hints = benchmarkCommitHints;
+    if (hints == null) throw StateError('Commit hints are disabled.');
+    hints.deliver = input['deliver'] as bool;
+    return _hintStatus();
   }
 
   Map<String, dynamic> _configureSampling(Map<String, dynamic> input) {
@@ -361,6 +381,7 @@ ORDER BY xact_start LIMIT 32
       'process': processSample(),
       'cpuCgroup': cpuCgroup.sample(),
       'streams': metrics.sample(),
+      'commitHints': benchmarkCommitHints?.status ?? {'enabled': false},
       'tables': tables,
       'tableCountsExact': exact || !postgres,
       'storage': storage,

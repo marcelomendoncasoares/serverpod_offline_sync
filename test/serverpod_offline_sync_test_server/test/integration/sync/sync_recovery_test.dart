@@ -392,7 +392,7 @@ void main() {
       );
     });
 
-    group('when the shared space is granted and then revoked,', () {
+    group('when a grant is recovered and a commit hint follows revocation,', () {
       late OfflineSyncSpaceSet granted;
       late OfflineSyncSpaceSet revoked;
 
@@ -413,6 +413,11 @@ void main() {
           fixture.raw,
           where: (t) => t.spaceId.equals(shared.id),
         );
+        // A delayed remote hint must cause a fresh permission read, never
+        // restore the permission that existed when the writer committed.
+        fixture.context.receiveCommittedSpaces({
+          shared.uuidSpaceId: 1,
+        });
         revoked = await peer.waitForEvent<OfflineSyncSpaceSet>(
           where: (event) =>
               !event.spaces.any((grant) => grant.uuidSpaceId == shared.uuidSpaceId),
@@ -420,7 +425,7 @@ void main() {
         await peer.close();
       });
 
-      test('then recovery announces both permission changes.', () {
+      test('then recovery grants access and the hint cannot bypass revocation.', () {
         expect(
           granted.spaces.map((grant) => grant.uuidSpaceId),
           contains(shared.uuidSpaceId),
@@ -493,6 +498,7 @@ typedef _Fixture = ({
   SyncNode node,
   database.DatabaseSession raw,
   _CountingDatabase db,
+  OfflineSyncDatabaseContext context,
 });
 
 Future<_Fixture> _fixture() async {
@@ -510,6 +516,7 @@ Future<_Fixture> _fixture() async {
   return (
     raw: raw,
     db: db,
+    context: context,
     node: (
       raw: session,
       offlineSync: session,
