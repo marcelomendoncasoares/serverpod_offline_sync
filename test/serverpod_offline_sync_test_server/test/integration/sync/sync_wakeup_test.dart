@@ -12,19 +12,21 @@ void main() {
   group('Given an idle client stream using the default sync settings,', () {
     late SyncNode node;
     late FramedSyncPeer peer;
-    late Unique row;
 
-    setUpAll(() async {
+    // Per test, not per group: a zero poll count proves the wakeup only while
+    // the insert lands on a fresh stream, before its first idle poll.
+    setUp(() async {
       node = await _node(persistentUserId: testCrdtUserId);
       peer = await FramedSyncPeer.open(node);
-      row = Unique(id: const Uuid().v7obj(), name: 'committed');
     });
 
     group('when an application transaction commits a local insertion,', () {
+      late Unique row;
       late List<CrdtMergeChange> sent;
       late int idlePolls;
 
-      setUpAll(() async {
+      setUp(() async {
+        row = Unique(id: const Uuid().v7obj(), name: 'committed');
         await node.offlineSync.db.transaction((tx) async {
           await Unique.db.insertRow(node.offlineSync, row, transaction: tx);
         });
@@ -39,24 +41,14 @@ void main() {
         expect(idlePolls, 0);
       });
     });
-  });
 
-  group('Given an idle client stream and a standalone ORM write,', () {
-    late SyncNode node;
-    late FramedSyncPeer peer;
-    late Unique row;
-
-    setUpAll(() async {
-      node = await _node(persistentUserId: testCrdtUserId);
-      peer = await FramedSyncPeer.open(node);
-      row = Unique(id: const Uuid().v7obj(), name: 'standalone');
-    });
-
-    group('when the insertion commits its own transaction,', () {
+    group('when a standalone ORM insertion commits its own transaction,', () {
+      late Unique row;
       late List<CrdtMergeChange> sent;
       late int idlePolls;
 
-      setUpAll(() async {
+      setUp(() async {
+        row = Unique(id: const Uuid().v7obj(), name: 'standalone');
         await Unique.db.insertRow(node.offlineSync, row);
         await peer.waitForRow(row.id!);
         sent = List.of(peer.outbound);
