@@ -27,6 +27,10 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     this.id,
     required super.hlcDatetime,
     required super.hlcCounter,
+    required this.spaceId,
+    int? syncRevision,
+    this.sourcePeerId,
+    this.sourcePeer,
     required this.rowId,
     this.row,
     required this.columnId,
@@ -34,12 +38,16 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     required this.nodeId,
     this.node,
     this.attemptedValue,
-  });
+  }) : syncRevision = syncRevision ?? 0;
 
   factory CrdtDataField({
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    required int spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     required int rowId,
     _icw2tu00.CrdtDataRow? row,
     required int columnId,
@@ -56,6 +64,14 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
         jsonSerialization['hlcDatetime'],
       ),
       hlcCounter: jsonSerialization['hlcCounter'] as int,
+      spaceId: jsonSerialization['spaceId'] as int,
+      syncRevision: jsonSerialization['syncRevision'] as int?,
+      sourcePeerId: jsonSerialization['sourcePeerId'] as int?,
+      sourcePeer: jsonSerialization['sourcePeer'] == null
+          ? null
+          : _icw2tu00.Protocol().deserialize<_icw2tu00.OfflineSyncPeer>(
+              jsonSerialization['sourcePeer'],
+            ),
       rowId: jsonSerialization['rowId'] as int,
       row: jsonSerialization['row'] == null
           ? null
@@ -89,6 +105,17 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
   @override
   int? id;
 
+  /// Owning space, copied from the immutable row identity for indexed capture.
+  int spaceId;
+
+  /// Local revision of this authored field fact, independent of its HLC.
+  int syncRevision;
+
+  int? sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeer? sourcePeer;
+
   int rowId;
 
   /// Row that the field belongs to.
@@ -119,6 +146,11 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
     int? id,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataField$sourcePeer(),
     int? rowId,
     _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataField$row(),
     int? columnId,
@@ -135,6 +167,10 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'spaceId': spaceId,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJson(),
       'rowId': rowId,
       if (row != null) 'row': row?.toJson(),
       'columnId': columnId,
@@ -152,6 +188,10 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
       if (id != null) 'id': id,
       'hlcDatetime': hlcDatetime.toJson(),
       'hlcCounter': hlcCounter,
+      'spaceId': spaceId,
+      'syncRevision': syncRevision,
+      if (sourcePeerId != null) 'sourcePeerId': sourcePeerId,
+      if (sourcePeer != null) 'sourcePeer': sourcePeer?.toJsonForProtocol(),
       'rowId': rowId,
       if (row != null) 'row': row?.toJsonForProtocol(),
       'columnId': columnId,
@@ -164,12 +204,14 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
   }
 
   static CrdtDataFieldInclude include({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtSchemaColumnInclude? column,
     _icw2tu00.CrdtNodeInclude? node,
     _icw2tu00.CrdtDataAttemptedValueInclude? attemptedValue,
   }) {
     return CrdtDataFieldInclude._(
+      sourcePeer: sourcePeer,
       row: row,
       column: column,
       node: node,
@@ -203,6 +245,11 @@ abstract class CrdtDataField extends _icw2tu00.BaseHlc
 
 class _Undefined {}
 
+class _UndefinedCrdtDataField$sourcePeer extends _iss.UndefinedSentinel
+    implements _icw2tu00.OfflineSyncPeer {
+  const _UndefinedCrdtDataField$sourcePeer();
+}
+
 class _UndefinedCrdtDataField$row extends _iss.UndefinedSentinel
     implements _icw2tu00.CrdtDataRow {
   const _UndefinedCrdtDataField$row();
@@ -228,6 +275,10 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     int? id,
     required DateTime hlcDatetime,
     required int hlcCounter,
+    required int spaceId,
+    int? syncRevision,
+    int? sourcePeerId,
+    _icw2tu00.OfflineSyncPeer? sourcePeer,
     required int rowId,
     _icw2tu00.CrdtDataRow? row,
     required int columnId,
@@ -239,6 +290,10 @@ class _CrdtDataFieldImpl extends CrdtDataField {
          id: id,
          hlcDatetime: hlcDatetime,
          hlcCounter: hlcCounter,
+         spaceId: spaceId,
+         syncRevision: syncRevision,
+         sourcePeerId: sourcePeerId,
+         sourcePeer: sourcePeer,
          rowId: rowId,
          row: row,
          columnId: columnId,
@@ -256,6 +311,11 @@ class _CrdtDataFieldImpl extends CrdtDataField {
     Object? id = _Undefined,
     DateTime? hlcDatetime,
     int? hlcCounter,
+    int? spaceId,
+    int? syncRevision,
+    Object? sourcePeerId = _Undefined,
+    _icw2tu00.OfflineSyncPeer? sourcePeer =
+        const _UndefinedCrdtDataField$sourcePeer(),
     int? rowId,
     _icw2tu00.CrdtDataRow? row = const _UndefinedCrdtDataField$row(),
     int? columnId,
@@ -269,6 +329,12 @@ class _CrdtDataFieldImpl extends CrdtDataField {
       id: id is int? ? id : this.id,
       hlcDatetime: hlcDatetime ?? this.hlcDatetime,
       hlcCounter: hlcCounter ?? this.hlcCounter,
+      spaceId: spaceId ?? this.spaceId,
+      syncRevision: syncRevision ?? this.syncRevision,
+      sourcePeerId: sourcePeerId is int? ? sourcePeerId : this.sourcePeerId,
+      sourcePeer: sourcePeer is _iss.UndefinedSentinel
+          ? this.sourcePeer?.copyWith()
+          : sourcePeer,
       rowId: rowId ?? this.rowId,
       row: row is _iss.UndefinedSentinel ? this.row?.copyWith() : row,
       columnId: columnId ?? this.columnId,
@@ -295,6 +361,21 @@ class CrdtDataFieldUpdateTable extends _isd.UpdateTable<CrdtDataFieldTable> {
 
   _isd.ColumnValue<int, int> hlcCounter(int value) => _isd.ColumnValue(
     table.hlcCounter,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> spaceId(int value) => _isd.ColumnValue(
+    table.spaceId,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> syncRevision(int value) => _isd.ColumnValue(
+    table.syncRevision,
+    value,
+  );
+
+  _isd.ColumnValue<int, int> sourcePeerId(int? value) => _isd.ColumnValue(
+    table.sourcePeerId,
     value,
   );
 
@@ -326,6 +407,19 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
       'hlcCounter',
       this,
     );
+    spaceId = _isd.ColumnInt(
+      'spaceId',
+      this,
+    );
+    syncRevision = _isd.ColumnInt(
+      'syncRevision',
+      this,
+      hasDefault: true,
+    );
+    sourcePeerId = _isd.ColumnInt(
+      'sourcePeerId',
+      this,
+    );
     rowId = _isd.ColumnInt(
       'rowId',
       this,
@@ -348,6 +442,17 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
   /// The counter component of the HLC timestamp.
   late final _isd.ColumnInt hlcCounter;
 
+  /// Owning space, copied from the immutable row identity for indexed capture.
+  late final _isd.ColumnInt spaceId;
+
+  /// Local revision of this authored field fact, independent of its HLC.
+  late final _isd.ColumnInt syncRevision;
+
+  late final _isd.ColumnInt sourcePeerId;
+
+  /// Authenticated immediate peer that supplied this fact.
+  _icw2tu00.OfflineSyncPeerTable? _sourcePeer;
+
   late final _isd.ColumnInt rowId;
 
   /// Row that the field belongs to.
@@ -366,6 +471,19 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
   /// Authored value retained while a projector materializes a different domain
   /// value for this field.
   _icw2tu00.CrdtDataAttemptedValueTable? _attemptedValue;
+
+  _icw2tu00.OfflineSyncPeerTable get sourcePeer {
+    if (_sourcePeer != null) return _sourcePeer!;
+    _sourcePeer = _isd.createRelationTable(
+      relationFieldName: 'sourcePeer',
+      field: CrdtDataField.t.sourcePeerId,
+      foreignField: _icw2tu00.OfflineSyncPeer.t.id,
+      tableRelation: tableRelation,
+      createTable: (foreignTableRelation) =>
+          _icw2tu00.OfflineSyncPeerTable(tableRelation: foreignTableRelation),
+    );
+    return _sourcePeer!;
+  }
 
   _icw2tu00.CrdtDataRowTable get row {
     if (_row != null) return _row!;
@@ -426,6 +544,9 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
     id,
     hlcDatetime,
     hlcCounter,
+    spaceId,
+    syncRevision,
+    sourcePeerId,
     rowId,
     columnId,
     nodeId,
@@ -433,6 +554,9 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
 
   @override
   _isd.Table? getRelationTable(String relationField) {
+    if (relationField == 'sourcePeer') {
+      return sourcePeer;
+    }
     if (relationField == 'row') {
       return row;
     }
@@ -451,16 +575,20 @@ class CrdtDataFieldTable extends _isd.Table<int?> {
 
 class CrdtDataFieldInclude extends _isd.IncludeObject {
   CrdtDataFieldInclude._({
+    _icw2tu00.OfflineSyncPeerInclude? sourcePeer,
     _icw2tu00.CrdtDataRowInclude? row,
     _icw2tu00.CrdtSchemaColumnInclude? column,
     _icw2tu00.CrdtNodeInclude? node,
     _icw2tu00.CrdtDataAttemptedValueInclude? attemptedValue,
   }) {
+    _sourcePeer = sourcePeer;
     _row = row;
     _column = column;
     _node = node;
     _attemptedValue = attemptedValue;
   }
+
+  _icw2tu00.OfflineSyncPeerInclude? _sourcePeer;
 
   _icw2tu00.CrdtDataRowInclude? _row;
 
@@ -472,6 +600,7 @@ class CrdtDataFieldInclude extends _isd.IncludeObject {
 
   @override
   Map<String, _isd.Include?> get includes => {
+    'sourcePeer': _sourcePeer,
     'row': _row,
     'column': _column,
     'node': _node,
@@ -505,6 +634,8 @@ class CrdtDataFieldRepository {
   const CrdtDataFieldRepository._();
 
   final attachRow = const CrdtDataFieldAttachRowRepository._();
+
+  final detachRow = const CrdtDataFieldDetachRowRepository._();
 
   /// Returns a list of [CrdtDataField]s matching the given query parameters.
   ///
@@ -972,6 +1103,29 @@ class CrdtDataFieldRepository {
 class CrdtDataFieldAttachRowRepository {
   const CrdtDataFieldAttachRowRepository._();
 
+  /// Creates a relation between the given [CrdtDataField] and [OfflineSyncPeer]
+  /// by setting the [CrdtDataField]'s foreign key `sourcePeerId` to refer to the [OfflineSyncPeer].
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataField crdtDataField,
+    _icw2tu00.OfflineSyncPeer sourcePeer, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataField.id == null) {
+      throw ArgumentError.notNull('crdtDataField.id');
+    }
+    if (sourcePeer.id == null) {
+      throw ArgumentError.notNull('sourcePeer.id');
+    }
+
+    var $crdtDataField = crdtDataField.copyWith(sourcePeerId: sourcePeer.id);
+    await session.db.updateRow<CrdtDataField>(
+      $crdtDataField,
+      columns: [CrdtDataField.t.sourcePeerId],
+      transaction: transaction,
+    );
+  }
+
   /// Creates a relation between the given [CrdtDataField] and [CrdtDataRow]
   /// by setting the [CrdtDataField]'s foreign key `rowId` to refer to the [CrdtDataRow].
   Future<void> row(
@@ -1060,6 +1214,32 @@ class CrdtDataFieldAttachRowRepository {
     await session.db.updateRow<_icw2tu00.CrdtDataAttemptedValue>(
       $attemptedValue,
       columns: [_icw2tu00.CrdtDataAttemptedValue.t.fieldId],
+      transaction: transaction,
+    );
+  }
+}
+
+class CrdtDataFieldDetachRowRepository {
+  const CrdtDataFieldDetachRowRepository._();
+
+  /// Detaches the relation between this [CrdtDataField] and the [OfflineSyncPeer] set in `sourcePeer`
+  /// by setting the [CrdtDataField]'s foreign key `sourcePeerId` to `null`.
+  ///
+  /// This removes the association between the two models without deleting
+  /// the related record.
+  Future<void> sourcePeer(
+    _isd.DatabaseSession session,
+    CrdtDataField crdtDataField, {
+    _isd.Transaction? transaction,
+  }) async {
+    if (crdtDataField.id == null) {
+      throw ArgumentError.notNull('crdtDataField.id');
+    }
+
+    var $crdtDataField = crdtDataField.copyWith(sourcePeerId: null);
+    await session.db.updateRow<CrdtDataField>(
+      $crdtDataField,
+      columns: [CrdtDataField.t.sourcePeerId],
       transaction: transaction,
     );
   }

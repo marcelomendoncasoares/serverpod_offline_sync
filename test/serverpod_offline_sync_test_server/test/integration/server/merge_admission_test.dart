@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_offline_sync/diagnostics.dart';
 import 'package:serverpod_offline_sync_server/serverpod_offline_sync_server.dart';
 import 'package:serverpod_offline_sync_test_server/src/generated/protocol.dart'
     as server;
@@ -313,10 +314,6 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
               OfflineSyncConnect(
                 localNodeId: source,
                 syncTablesHash: engine.currentSyncTablesHash,
-              ),
-            )
-            ..add(
-              OfflineSyncSpaceSet(
                 spaces: [
                   OfflineSyncSpaceGrant(
                     uuidSpaceId: user,
@@ -325,9 +322,18 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
                 ],
               ),
             )
-            ..add(OfflineSyncSinceHlc(uuidSpaceId: user, nodeCheckpoints: []))
-            ..add(OfflineSyncMergeChunk(changes: changes))
-            ..add(OfflineSyncEndOfBatch());
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(OfflineSyncReady())
+            ..add(OfflineSyncMergeChunk(batchId: 1, changes: changes))
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(uuidSpaceId: user, revision: 1),
+                ],
+              ),
+            );
           await entered.future.timeout(const Duration(seconds: 10));
         });
 
@@ -626,6 +632,162 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'
             });
           },
         );
+      });
+
+      group('Given an authorized upload queued behind global merge capacity,', () {
+        late OfflineSyncSpaceMember member;
+        late Completer<void> release;
+        late Future<server.Unique> holding;
+        late server.Unique row;
+        late Completer<void> finished;
+        late List<OfflineSyncCommitted> acknowledgements;
+        Object? streamError;
+
+        setUpAll(() async {
+          final user = const Uuid().v7obj();
+          final space = await OfflineSyncSpaceManager(
+            observer,
+          ).getOrCreate(const Uuid().v7obj());
+          member = await OfflineSyncSpaceMember.db.insertRow(
+            observer,
+            OfflineSyncSpaceMember(
+              spaceId: space.id!,
+              userUuid: user,
+              role: OfflineSyncSpaceRole.readWrite,
+            ),
+          );
+          final shared = context(1);
+          final entered = Completer<void>();
+          release = Completer<void>();
+          final holder = await wrapper(
+            shared,
+            database: _HoldMerge(sessions.build().db, entered, release),
+          );
+          holding = _merge(holder, user: const Uuid().v7obj());
+          addTearDown(() async {
+            if (!release.isCompleted) release.complete();
+            await holding;
+          });
+          await entered.future.timeout(const Duration(seconds: 10));
+          final engine = OfflineSyncEngine(
+            syncTables: server.syncTables,
+            serializationManager: observer.db.serializationManager,
+            databaseContext: shared,
+          );
+          final inbound = StreamController<OfflineSyncStreamEvent>();
+          final queued = Completer<void>();
+          finished = Completer<void>();
+          acknowledgements = [];
+          final subscription = OfflineSyncDiagnostics.run(
+            (event) {
+              if (event['name'] == 'queue.join' && !queued.isCompleted) {
+                queued.complete();
+              }
+            },
+            () => engine
+                .sync(
+                  sessions.build(),
+                  userId: user,
+                  inbound: inbound.stream,
+                  mode: OfflineSyncPeerMode.authoritative,
+                )
+                .listen(
+                  (event) {
+                    if (event is OfflineSyncCommitted) acknowledgements.add(event);
+                  },
+                  onError: (Object failure) => streamError = failure,
+                  onDone: finished.complete,
+                ),
+          );
+          addTearDown(() async {
+            await subscription.cancel();
+            if (!inbound.isClosed) unawaited(inbound.close());
+          });
+          row = server.Unique(
+            id: const Uuid().v7obj(),
+            name: 'revoked while queued',
+          );
+
+          inbound
+            ..add(
+              OfflineSyncConnect(
+                localNodeId: const Uuid().v7obj(),
+                syncTablesHash: engine.currentSyncTablesHash,
+                spaces: const [],
+              ),
+            )
+            ..add(OfflineSyncSinceRevision(uuidSpaceId: user, nodeCheckpoints: []))
+            ..add(
+              OfflineSyncSinceRevision(
+                uuidSpaceId: space.uuidSpaceId,
+                nodeCheckpoints: [],
+              ),
+            )
+            ..add(OfflineSyncReady())
+            ..add(
+              OfflineSyncMergeChunk(
+                batchId: 1,
+                changes: [
+                  CrdtMergeInsert(
+                    uuidSpaceId: space.uuidSpaceId,
+                    tableName: server.Unique.t.tableName,
+                    uuidRowId: row.id!,
+                    uuidNodeId: const Uuid().v7obj(),
+                    hlcDatetime: DateTime.utc(2026),
+                    hlcCounter: 0,
+                    data: row,
+                  ),
+                ],
+              ),
+            )
+            ..add(
+              OfflineSyncEndOfBatch(
+                batchId: 1,
+                finalForOnce: false,
+                checkpoints: [
+                  OfflineSyncSpaceCheckpoint(
+                    uuidSpaceId: space.uuidSpaceId,
+                    revision: 1,
+                  ),
+                ],
+              ),
+            );
+          await queued.future.timeout(const Duration(seconds: 10));
+        });
+
+        group('when its shared-space grant is revoked before admission,', () {
+          late Object? error;
+          late server.Unique? persisted;
+          late List<OfflineSyncIntegrityViolation> violations;
+          late List<OfflineSyncCommitted> acknowledged;
+
+          setUpAll(() async {
+            await OfflineSyncSpaceMember.db.deleteRow(observer, member);
+            release.complete();
+            await holding;
+            await finished.future.timeout(const Duration(seconds: 10));
+            error = streamError;
+            acknowledged = List.of(acknowledgements);
+            persisted = await server.Unique.db.findById(observer, row.id!);
+            violations = await OfflineSyncIntegrityViolation.db.find(
+              observer,
+              where: (t) => t.uuidRowId.equals(row.id),
+            );
+          });
+
+          test(
+            'then the transaction rejects it without acknowledging or storing the row.',
+            () {
+              expect(error, isA<OfflineSyncIntegrityViolationException>());
+              expect(persisted, isNull);
+              expect(acknowledged, isEmpty);
+              expect(
+                violations.single.type,
+                OfflineSyncViolationType.unauthorizedWrite,
+              );
+            },
+          );
+        });
       });
 
       test(

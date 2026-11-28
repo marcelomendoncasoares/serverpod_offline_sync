@@ -691,6 +691,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       final insertedField = await CrdtDataField.db.insertRow(
         _session,
         CrdtDataField(
+          spaceId: row.spaceId,
+          syncRevision: _context.revisionFor(transaction),
+          sourcePeerId: _context.sourcePeerIdFor(transaction),
           rowId: row.id!,
           columnId: column.id!,
           nodeId: remoteNode.id!,
@@ -708,6 +711,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     final updatedField = existingField.copyWith(
+      syncRevision: _context.revisionFor(transaction),
+      sourcePeerId: _context.sourcePeerIdFor(transaction),
       row: row,
       column: column,
       nodeId: remoteNode.id,
@@ -722,7 +727,13 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       await CrdtDataField.db.update(
         _session,
         [updatedField],
-        columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter],
+        columns: (t) => [
+          t.nodeId,
+          t.hlcDatetime,
+          t.hlcCounter,
+          t.syncRevision,
+          t.sourcePeerId,
+        ],
         transaction: transaction,
       );
     }
@@ -742,6 +753,9 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
       final insertedTombstone = await CrdtDataDeleted.db.insertRow(
         _session,
         CrdtDataDeleted(
+          spaceId: row.spaceId,
+          syncRevision: _context.revisionFor(transaction),
+          sourcePeerId: _context.sourcePeerIdFor(transaction),
           rowId: row.id!,
           nodeId: remoteNode.id!,
           hlcDatetime: incomingHlc.datetime,
@@ -759,6 +773,8 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     }
 
     final updatedTombstone = currentTombstone.copyWith(
+      syncRevision: _context.revisionFor(transaction),
+      sourcePeerId: _context.sourcePeerIdFor(transaction),
       row: row,
       nodeId: remoteNode.id,
       node: remoteNode,
@@ -771,7 +787,15 @@ extension CrdtMergeRecorderExtension on CrdtMutationRecorder {
     await CrdtDataDeleted.db.update(
       _session,
       [updatedTombstone],
-      columns: (t) => [t.nodeId, t.hlcDatetime, t.hlcCounter, t.clFlag, t.reason],
+      columns: (t) => [
+        t.nodeId,
+        t.hlcDatetime,
+        t.hlcCounter,
+        t.clFlag,
+        t.reason,
+        t.syncRevision,
+        t.sourcePeerId,
+      ],
       transaction: transaction,
     );
 

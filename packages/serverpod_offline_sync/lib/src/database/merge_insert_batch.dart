@@ -167,6 +167,8 @@ extension on CrdtMutationRecorder {
       writes.recordRowInsert(
         insert.tableName,
         CrdtDataRow(
+          syncRevision: _context.revisionFor(transaction),
+          sourcePeerId: _context.sourcePeerIdFor(transaction),
           spaceId: spaceId,
           tblId: _context.schema[insert.tableName]!.$1,
           uuidRowId: insert.uuidRowId,

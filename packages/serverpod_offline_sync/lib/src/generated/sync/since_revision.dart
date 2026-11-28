@@ -11,53 +11,49 @@
 
 part of 'stream_event.dart';
 
-/// Per-space checkpoint sent by each peer before the first visit to a space.
-abstract class OfflineSyncSinceHlc extends _icw2tu00.OfflineSyncStreamEvent
+/// Per-space durable resume positions, scoped to the authenticated user's peers.
+abstract class OfflineSyncSinceRevision extends _icw2tu00.OfflineSyncStreamEvent
     implements _iss.SerializableModel, _iss.ProtocolSerialization {
-  OfflineSyncSinceHlc._({
+  OfflineSyncSinceRevision._({
     required this.uuidSpaceId,
     required this.nodeCheckpoints,
   });
 
-  factory OfflineSyncSinceHlc({
+  factory OfflineSyncSinceRevision({
     required _iss.UuidValue uuidSpaceId,
-    required List<_icw2tu00.Hlc> nodeCheckpoints,
-  }) = _OfflineSyncSinceHlcImpl;
+    required List<_icw2tu00.OfflineSyncNodeCheckpoint> nodeCheckpoints,
+  }) = _OfflineSyncSinceRevisionImpl;
 
-  factory OfflineSyncSinceHlc.fromJson(Map<String, dynamic> jsonSerialization) {
-    return OfflineSyncSinceHlc(
+  factory OfflineSyncSinceRevision.fromJson(
+    Map<String, dynamic> jsonSerialization,
+  ) {
+    return OfflineSyncSinceRevision(
       uuidSpaceId: _iss.UuidValueJsonExtension.fromJson(
         jsonSerialization['uuidSpaceId'],
       ),
-      nodeCheckpoints: _icw2tu00.Protocol().deserialize<List<_icw2tu00.Hlc>>(
-        jsonSerialization['nodeCheckpoints'],
-      ),
+      nodeCheckpoints: _icw2tu00.Protocol()
+          .deserialize<List<_icw2tu00.OfflineSyncNodeCheckpoint>>(
+            jsonSerialization['nodeCheckpoints'],
+          ),
     );
   }
 
-  /// Space this checkpoint belongs to.
   _iss.UuidValue uuidSpaceId;
 
-  /// Per-node checkpoints that describe which changes the sender already has.
-  ///
-  /// Each checkpoint is an [Hlc] whose `nodeId` is the source node being
-  /// checkpointed. The receiver uses this list to compute a diff without
-  /// relying on a single global HLC, which would miss concurrent changes from
-  /// nodes unknown at the time of the previous sync.
-  List<_icw2tu00.Hlc> nodeCheckpoints;
+  List<_icw2tu00.OfflineSyncNodeCheckpoint> nodeCheckpoints;
 
-  /// Returns a shallow copy of this [OfflineSyncSinceHlc]
+  /// Returns a shallow copy of this [OfflineSyncSinceRevision]
   /// with some or all fields replaced by the given arguments.
   @override
   @_iss.useResult
-  OfflineSyncSinceHlc copyWith({
+  OfflineSyncSinceRevision copyWith({
     _iss.UuidValue? uuidSpaceId,
-    List<_icw2tu00.Hlc>? nodeCheckpoints,
+    List<_icw2tu00.OfflineSyncNodeCheckpoint>? nodeCheckpoints,
   });
   @override
   Map<String, dynamic> toJson() {
     return {
-      '__className__': 'serverpod_offline_sync.OfflineSyncSinceHlc',
+      '__className__': 'serverpod_offline_sync.OfflineSyncSinceRevision',
       'uuidSpaceId': uuidSpaceId.toJson(),
       'nodeCheckpoints': nodeCheckpoints.toJson(valueToJson: (v) => v.toJson()),
     };
@@ -66,16 +62,10 @@ abstract class OfflineSyncSinceHlc extends _icw2tu00.OfflineSyncStreamEvent
   @override
   Map<String, dynamic> toJsonForProtocol() {
     return {
-      '__className__': 'serverpod_offline_sync.OfflineSyncSinceHlc',
+      '__className__': 'serverpod_offline_sync.OfflineSyncSinceRevision',
       'uuidSpaceId': uuidSpaceId.toJson(),
       'nodeCheckpoints': nodeCheckpoints.toJson(
-        valueToJson: (v) =>
-            // ignore: unnecessary_type_check
-            v is _iss.ProtocolSerialization
-            ? (v as _iss.ProtocolSerialization).toJsonForProtocol()
-            :
-              // ignore: dead_code
-              v.toJson(),
+        valueToJson: (v) => v.toJsonForProtocol(),
       ),
     };
   }
@@ -86,24 +76,24 @@ abstract class OfflineSyncSinceHlc extends _icw2tu00.OfflineSyncStreamEvent
   }
 }
 
-class _OfflineSyncSinceHlcImpl extends OfflineSyncSinceHlc {
-  _OfflineSyncSinceHlcImpl({
+class _OfflineSyncSinceRevisionImpl extends OfflineSyncSinceRevision {
+  _OfflineSyncSinceRevisionImpl({
     required _iss.UuidValue uuidSpaceId,
-    required List<_icw2tu00.Hlc> nodeCheckpoints,
+    required List<_icw2tu00.OfflineSyncNodeCheckpoint> nodeCheckpoints,
   }) : super._(
          uuidSpaceId: uuidSpaceId,
          nodeCheckpoints: nodeCheckpoints,
        );
 
-  /// Returns a shallow copy of this [OfflineSyncSinceHlc]
+  /// Returns a shallow copy of this [OfflineSyncSinceRevision]
   /// with some or all fields replaced by the given arguments.
   @_iss.useResult
   @override
-  OfflineSyncSinceHlc copyWith({
+  OfflineSyncSinceRevision copyWith({
     _iss.UuidValue? uuidSpaceId,
-    List<_icw2tu00.Hlc>? nodeCheckpoints,
+    List<_icw2tu00.OfflineSyncNodeCheckpoint>? nodeCheckpoints,
   }) {
-    return OfflineSyncSinceHlc(
+    return OfflineSyncSinceRevision(
       uuidSpaceId: uuidSpaceId ?? this.uuidSpaceId,
       nodeCheckpoints:
           nodeCheckpoints ??

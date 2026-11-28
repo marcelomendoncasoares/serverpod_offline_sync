@@ -517,11 +517,28 @@ void main() {
       late OfflineSyncDatabaseSession app;
       late DateTime start;
       late Hlc committedClock;
+      late List<UuidValue> notifications;
 
       setUpAll(() async {
-        app = OfflineSyncDatabaseSession.wraps(
-          await createAdditionalTestSession(),
+        final raw = await createAdditionalTestSession();
+        final context = OfflineSyncDatabaseContext(
           syncTables: testSyncTables,
+          serializationManager: raw.db.serializationManager,
+        );
+        notifications = [];
+
+        // Observe the local notification subscription used by the sync engine.
+        // ignore: invalid_use_of_internal_member
+        final unsubscribe = context.onSpaceChanged(
+          testCrdtUserId,
+          () => notifications.add(testCrdtUserId),
+        );
+        addTearDown(unsubscribe);
+
+        app = OfflineSyncDatabaseSession.wraps(
+          raw,
+          syncTables: testSyncTables,
+          context: context,
           persistentUserId: testCrdtUserId,
         );
         await app.db.initialize();
@@ -537,6 +554,7 @@ void main() {
         });
 
         committedClock = await rowHlc(prime.id!, databaseSession: app);
+        notifications.clear();
       });
 
       group(
@@ -548,6 +566,8 @@ void main() {
           late Hlc expectedNext;
           late Hlc nextClock;
           late Unique? cancelledRow;
+          late List<UuidValue> notificationsAfterCancel;
+          late List<UuidValue> notificationsAfterCommit;
 
           setUpAll(() async {
             final cancelled = Unique(id: const Uuid().v7obj(), name: 'cancelled');
@@ -566,6 +586,7 @@ void main() {
               failure = error;
             }
 
+            notificationsAfterCancel = List.of(notifications);
             cancelledRow = await Unique.db.findById(app, cancelled.id!);
             persistedAfterCancel = await persistedUserClock(app, testCrdtUserId);
 
@@ -574,6 +595,7 @@ void main() {
               await Unique.db.insertRow(app, next);
             });
             nextClock = await rowHlc(next.id!, databaseSession: app);
+            notificationsAfterCommit = List.of(notifications);
           });
 
           test(
@@ -586,6 +608,14 @@ void main() {
               expect(nextClock, expectedNext);
             },
           );
+
+          test('then cancellation emits no local wakeup.', () {
+            expect(notificationsAfterCancel, isEmpty);
+          });
+
+          test('then the following committed write emits one local wakeup.', () {
+            expect(notificationsAfterCommit, [testCrdtUserId]);
+          });
         },
       );
     },

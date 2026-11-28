@@ -219,7 +219,7 @@ Future<List<String>> _export(SyncNode node) async {
   final changes = await node.sync
       .collectPendingChanges(
         node.raw,
-        checkpointsBySpaceUuid: {testCrdtUserId: const []},
+        checkpointsBySpaceUuid: {testCrdtUserId: 0},
       )
       .toList();
   return changes.map((change) => change.toJson().toString()).toList()..sort();
