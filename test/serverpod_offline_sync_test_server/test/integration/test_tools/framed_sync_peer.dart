@@ -18,9 +18,16 @@ import 'sync_topology.dart';
 /// acknowledges every server batch with `Committed`. [sendBatch] uploads one
 /// numbered batch whose per-space bound is its batch id.
 ///
+/// The epoch and bounds are fake; the frames are not. `framed_sync_peer_test.dart`
+/// runs one scenario with this fixture and with the real follower, and fails when
+/// what they send the session differs.
+///
 /// Commit acknowledgements and capture diagnostics provide explicit barriers.
 class FramedSyncPeer {
   final inbound = StreamController<OfflineSyncStreamEvent>();
+
+  /// The frames this follower sent, in the order the session read them.
+  final sent = <OfflineSyncStreamEvent>[];
   final outbound = <CrdtMergeChange>[];
   final events = <OfflineSyncStreamEvent>[];
   final _events = StreamController<OfflineSyncStreamEvent>.broadcast();
@@ -79,7 +86,10 @@ class FramedSyncPeer {
           .sync(
             node.raw,
             userId: actingUser,
-            inbound: peer.inbound.stream,
+            inbound: peer.inbound.stream.map((frame) {
+              peer.sent.add(frame);
+              return frame;
+            }),
             mode: OfflineSyncPeerMode.authoritative,
           )
           .listen(
