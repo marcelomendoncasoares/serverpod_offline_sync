@@ -23,6 +23,7 @@ dev_dependencies:
   path: ^1.9.1
   serverpod_cli: ^4.1.2
   serverpod_database: ^4.1.2
+  serverpod_shared: ^4.1.2
   serverpod_offline_sync_client:
     path: ../../packages/serverpod_offline_sync_client
   serverpod_offline_sync_test_client:
